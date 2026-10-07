@@ -57,7 +57,7 @@ export function Shell({ profile, screen, onNavigate, labsBadge = false, latest, 
               </Button>
             )}
             <button type="button" onClick={() => member && go('home')} aria-label="LabLink dashboard">
-              <Logo markClassName="size-7" />
+              <Logo className="h-8" />
             </button>
             {member && (
               <nav aria-label="Main menu" className="hidden flex-1 lg:block">
@@ -98,7 +98,7 @@ export function Shell({ profile, screen, onNavigate, labsBadge = false, latest, 
             <SheetContent side="left" className="w-[min(82vw,320px)] gap-0 p-0 lg:hidden" onOpenAutoFocus={(e) => e.preventDefault()}>
               <SheetHeader className="border-b border-border p-5">
                 <SheetTitle>
-                  <Logo markClassName="size-7" />
+                  <Logo className="h-8" />
                 </SheetTitle>
                 <SheetDescription>Signed in as {profile.name}</SheetDescription>
               </SheetHeader>

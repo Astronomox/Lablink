@@ -105,7 +105,7 @@ export function DoctorReport({ profile, results, insight, risk, aiEnabled, onBac
         <article aria-label="Doctor’s summary" className="rounded-2xl bg-card p-5 ring-1 ring-foreground/10 lg:p-10 print:rounded-none print:p-0 print:ring-0">
           <header className="flex flex-wrap items-start justify-between gap-3 border-b-2 border-foreground pb-3">
             <div>
-              <Logo markClassName="size-6" className="text-primary" />
+              <Logo className="h-8" />
               <h2 className="mt-1 text-lg font-semibold">Fasting blood sugar summary</h2>
             </div>
             <p className="text-right text-sm">

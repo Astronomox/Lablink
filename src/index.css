@@ -5,19 +5,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* LabLink blue, for brand accents beyond the shadcn tokens. */
-@theme {
-  --color-brand-50: #eef4fb;
-  --color-brand-100: #dbe7f6;
-  --color-brand-200: #b8cfec;
-  --color-brand-300: #8bb0de;
-  --color-brand-500: #2f6bb5;
-  --color-brand-600: #1f5592;
-  --color-brand-700: #1a4778;
-  --color-brand-800: #163b63;
-  --color-brand-900: #12304f;
-}
-
+/* Colours come from the logo: navy (#1c2f59) for primary actions, teal (#1990a8) for highlights. */
 :root {
   --tabbar-h: 4rem;
   --mobile-header-h: calc(3.5rem + env(safe-area-inset-top));
@@ -28,23 +16,23 @@
   --card-foreground: #1c2430;
   --popover: #ffffff;
   --popover-foreground: #1c2430;
-  --primary: #1f5592;
+  --primary: #1c2f59;
   --primary-foreground: #ffffff;
-  --secondary: #eef4fb;
-  --secondary-foreground: #1a4778;
+  --secondary: #e8f5f8;
+  --secondary-foreground: #1c2f59;
   --muted: #f1f3f6;
   --muted-foreground: #5d6876;
-  --accent: #eef4fb;
-  --accent-foreground: #1a4778;
+  --accent: #e8f5f8;
+  --accent-foreground: #126a7c;
   --destructive: #c62828;
   --border: #e3e7ec;
   --input: #d6dce3;
-  --ring: #2f6bb5;
-  --chart-1: #1f5592;
+  --ring: #1990a8;
+  --chart-1: #1990a8;
   --chart-2: #f97316;
   --chart-3: #dc2626;
   --chart-4: #16a34a;
-  --chart-5: #8bb0de;
+  --chart-5: #1c2f59;
   --radius: 0.75rem;
 }
 

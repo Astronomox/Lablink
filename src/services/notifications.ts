@@ -37,7 +37,7 @@ export function registerServiceWorker() {
 /** Show a notification, through the service worker where available (required on Android). */
 export async function showNotification(title: string, body: string, screen = 'labs') {
   if (notifyPermission() !== 'granted') return
-  const options: NotificationOptions = { body, icon: '/favicon.svg', badge: '/favicon.svg', tag: 'lablink-checkup', data: { screen, url: '/' } }
+  const options: NotificationOptions = { body, icon: '/icon-192.png', badge: '/favicon.png', tag: 'lablink-checkup', data: { screen, url: '/' } }
   const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined
   if (reg) await reg.showNotification(title, options)
   else new Notification(title, options)

@@ -50,7 +50,7 @@ export function Landing({ member, memberName, onEnrol, onLogin }: Props) {
       <header className="sticky top-0 z-40 border-b border-border bg-card/95 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex h-14 max-w-[1180px] items-center gap-6 px-4 lg:h-16 lg:px-6">
           <a href="#top" aria-label="LabLink home">
-            <Logo markClassName="size-7" />
+            <Logo className="h-8" />
           </a>
           <nav aria-label="Sections" className="hidden flex-1 lg:block">
             <ul className="flex gap-1">
@@ -90,10 +90,11 @@ export function Landing({ member, memberName, onEnrol, onLogin }: Props) {
       <main id="main" className="flex-1">
         <section id="top" className="mx-auto grid max-w-[1180px] gap-8 px-4 pt-10 pb-12 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center lg:px-6 lg:pt-16 lg:pb-20">
           <div>
-            <h1 className="text-4xl leading-[1.1] font-semibold tracking-tight lg:text-5xl">Keep track of your fasting blood sugar</h1>
+            <h1 className="text-4xl leading-[1.1] font-semibold tracking-tight lg:text-5xl">Catch health problems before they catch you</h1>
             <p className="mt-4 max-w-[58ch] text-lg text-muted-foreground">
-              LabLink keeps your fasting blood sugar results in one place, shows whether they are going up, reminds you when your next test is due and helps you book a test at a nearby lab.
+              LabLink keeps your lab results in one place, spots worrying changes early, reminds you when your next checkup is due and helps you book a test at a nearby lab.
             </p>
+            <p className="mt-3 text-sm font-medium text-accent-foreground">Starting with fasting blood sugar.</p>
             <div className="mt-6 flex flex-wrap gap-3">
               {primary}
               <a href="#how" className={btn('secondary', 'lg')}>
