@@ -1,21 +1,19 @@
 /**
- * Claude-powered endpoints, served from the Vite dev/preview server so the
+ * Gemini-powered endpoints, served from the Vite dev/preview server so the
  * API key stays server-side. Mounted at /api/ai/*.
  *
  *   GET  /api/ai/status   -> { enabled }
  *   POST /api/ai/coach    -> streamed plain text (chat or doctor summary)
  *   POST /api/ai/scan     -> { found, results[], notes } extracted from a lab report
  */
-import Anthropic from '@anthropic-ai/sdk'
-import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
+import { ApiError, GoogleGenAI, type Content } from '@google/genai'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
 import { z } from 'zod'
 
-const MODEL = 'claude-opus-5-5'
-// Re-run a declined request on Anthropic's recommended fallback model instead of failing.
-const FALLBACK = { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }
+const DEFAULT_MODEL = 'gemini-3.8-flash'
 const MAX_BODY_BYTES = 20 * 1024 * 1024
+const BLOCKED_REPLY = 'I can’t help with that one. For anything urgent or specific to your treatment, please speak with a doctor.'
 
 const COACH_SYSTEM = `You are LabLink Coach, a warm, practical preventive-health assistant inside the LabLink app, used mainly by adults in Nigeria to track fasting blood sugar (FBS).
 
@@ -46,6 +44,8 @@ const ScanSchema = z.object({
 const SCAN_PROMPT = `Extract every FASTING blood glucose result (also called FBS, FBG, fasting plasma glucose, fasting blood sugar) from this lab report.
 Ignore random/postprandial glucose, HbA1c and other tests. Copy values and units exactly as printed — do not convert. If the unit is missing, infer it from magnitude (values under 30 are mmol/L).`
 
+const SCAN_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+
 type Role = 'user' | 'assistant'
 interface CoachBody {
   mode?: 'chat' | 'doctor'
@@ -57,20 +57,20 @@ interface ScanBody {
   data: string
 }
 
-export function aiPlugin(apiKey: string | undefined): Plugin {
+export function aiPlugin(apiKey: string | undefined, model = DEFAULT_MODEL): Plugin {
   const enabled = Boolean(apiKey)
-  const client = enabled ? new Anthropic({ apiKey }) : null
+  const client = enabled ? new GoogleGenAI({ apiKey }) : null
 
   const handler = async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
     const url = req.url ?? ''
     if (!url.startsWith('/api/ai/')) return next()
     try {
       if (url === '/api/ai/status') return json(res, 200, { enabled })
-      if (!client) return json(res, 503, { error: 'AI is not configured. Add ANTHROPIC_API_KEY to app/.env.local and restart.' })
+      if (!client) return json(res, 503, { error: 'AI is not configured. Add GEMINI_API_KEY to app/.env.local and restart.' })
       if (req.method !== 'POST') return json(res, 405, { error: 'POST only' })
 
-      if (url === '/api/ai/coach') return await coach(client, (await readJson(req)) as CoachBody, res)
-      if (url === '/api/ai/scan') return await scan(client, (await readJson(req)) as ScanBody, res)
+      if (url === '/api/ai/coach') return await coach(client, model, (await readJson(req)) as CoachBody, res)
+      if (url === '/api/ai/scan') return await scan(client, model, (await readJson(req)) as ScanBody, res)
       return json(res, 404, { error: 'Not found' })
     } catch (err) {
       console.error('[ai]', err)
@@ -90,56 +90,59 @@ export function aiPlugin(apiKey: string | undefined): Plugin {
   }
 }
 
-async function coach(client: Anthropic, body: CoachBody, res: ServerResponse) {
+async function coach(client: GoogleGenAI, model: string, body: CoachBody, res: ServerResponse) {
   const history = (body.messages ?? []).filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content?.trim())
   if (history.length === 0 || history[0].role !== 'user') return json(res, 400, { error: 'messages must start with a user turn' })
 
-  const stream = client.beta.messages.stream({
-    model: MODEL,
-    max_tokens: 8000,
-    ...FALLBACK,
-    output_config: { effort: 'low' },
-    system: [
-      { type: 'text', text: body.mode === 'doctor' ? DOCTOR_SYSTEM : COACH_SYSTEM, cache_control: { type: 'ephemeral' } },
-      { type: 'text', text: `Patient context (JSON, from the LabLink app):\n${JSON.stringify(body.context)}` },
-    ],
-    messages: history.slice(-20),
+  // Gemini calls the assistant role "model".
+  const contents: Content[] = history.slice(-20).map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }))
+  const system = `${body.mode === 'doctor' ? DOCTOR_SYSTEM : COACH_SYSTEM}\n\nPatient context (JSON, from the LabLink app):\n${JSON.stringify(body.context)}`
+
+  const stream = await client.models.generateContentStream({
+    model,
+    contents,
+    config: { systemInstruction: system, maxOutputTokens: 2048 },
   })
 
   res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no' })
-  stream.on('text', (text) => res.write(text))
-  const final = await stream.finalMessage()
-  if (final.stop_reason === 'refusal') {
-    res.write('\n\nI can’t help with that one. For anything urgent or specific to your treatment, please speak with a doctor.')
+  let wrote = false
+  for await (const chunk of stream) {
+    const text = chunk.text
+    if (text) {
+      res.write(text)
+      wrote = true
+    }
   }
+  // A safety block ends the stream without any text.
+  if (!wrote) res.write(BLOCKED_REPLY)
   res.end()
 }
 
-async function scan(client: Anthropic, body: ScanBody, res: ServerResponse) {
+async function scan(client: GoogleGenAI, model: string, body: ScanBody, res: ServerResponse) {
   const { mediaType, data } = body
-  const isPdf = mediaType === 'application/pdf'
-  const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
-  type ImageType = (typeof imageTypes)[number]
-  if (!data || (!isPdf && !imageTypes.includes(mediaType as ImageType))) {
+  if (!data || !SCAN_TYPES.includes(mediaType)) {
     return json(res, 400, { error: 'Upload a JPG, PNG, WEBP or PDF lab report.' })
   }
 
-  const source = isPdf
-    ? ({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } } as const)
-    : ({ type: 'image', source: { type: 'base64', media_type: mediaType as ImageType, data } } as const)
-
-  const response = await client.beta.messages.parse({
-    model: MODEL,
-    max_tokens: 16000,
-    ...FALLBACK,
-    output_config: { effort: 'medium', format: betaZodOutputFormat(ScanSchema) },
-    messages: [{ role: 'user', content: [source, { type: 'text', text: SCAN_PROMPT }] }],
+  const response = await client.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ inlineData: { mimeType: mediaType, data } }, { text: SCAN_PROMPT }] }],
+    config: { responseMimeType: 'application/json', responseJsonSchema: z.toJSONSchema(ScanSchema), maxOutputTokens: 2048 },
   })
 
-  if (response.stop_reason === 'refusal' || !response.parsed_output) {
+  const parsed = ScanSchema.safeParse(safeJson(response.text))
+  if (!parsed.success) {
     return json(res, 422, { error: 'Could not read this report. Try a clearer photo, or enter the value manually.' })
   }
-  json(res, 200, response.parsed_output)
+  json(res, 200, parsed.data)
+}
+
+function safeJson(text: string | undefined): unknown {
+  try {
+    return text ? JSON.parse(text) : null
+  } catch {
+    return null
+  }
 }
 
 function readJson(req: IncomingMessage): Promise<unknown> {
@@ -174,18 +177,20 @@ class HttpError extends Error {
 
 function statusFor(err: unknown): number {
   if (err instanceof HttpError) return err.status
-  if (err instanceof Anthropic.RateLimitError) return 429
-  if (err instanceof Anthropic.AuthenticationError) return 502
-  if (err instanceof Anthropic.APIError) return 502
+  if (err instanceof ApiError) return err.status === 429 ? 429 : 502
   return 500
 }
 
 function messageFor(err: unknown): string {
   if (err instanceof HttpError) return err.message
-  if (err instanceof Anthropic.RateLimitError) return 'The AI is busy right now — try again in a moment.'
-  if (err instanceof Anthropic.AuthenticationError) return 'The Anthropic API key was rejected. Check ANTHROPIC_API_KEY.'
-  if (err instanceof Anthropic.APIConnectionError) return 'Could not reach the AI service. Check your internet connection.'
-  if (err instanceof Anthropic.APIError) return `AI service error (${err.status}).`
+  if (err instanceof ApiError) {
+    if (err.status === 429) return 'The AI is busy right now. Try again in a moment.'
+    if (err.status === 400 && /api key/i.test(err.message)) return 'The Gemini API key was rejected. Check GEMINI_API_KEY.'
+    if (err.status === 401 || err.status === 403) return 'The Gemini API key was rejected. Check GEMINI_API_KEY.'
+    if (err.status === 404) return 'The Gemini model was not found. Check GEMINI_MODEL.'
+    return `AI service error (${err.status}).`
+  }
+  if (err instanceof TypeError) return 'Could not reach the AI service. Check your internet connection.'
   return 'Something went wrong.'
 }
 

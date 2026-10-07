@@ -1,4 +1,4 @@
-/** Rule-based coach replies used when Claude isn't configured or reachable. */
+/** Rule-based coach replies used when the AI service isn't configured or reachable. */
 import { CATEGORY_LABEL, categorize, formatValue } from './glucose'
 import type { Insight } from './intelligence'
 import type { RiskResult } from './risk'
