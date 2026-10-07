@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/ai/*.ts": { "maxDuration": 60 }
+  },
+  "rewrites": [{ "source": "/api/healthfinder/:path*", "destination": "https://odphp.health.gov/:path*" }],
+  "headers": [{ "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }]
+}

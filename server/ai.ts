@@ -57,35 +57,48 @@ interface ScanBody {
   data: string
 }
 
-export function aiPlugin(apiKey: string | undefined, model = DEFAULT_MODEL): Plugin {
+export type AiRoute = 'status' | 'coach' | 'scan'
+
+/** Request handler shared by the Vite dev/preview server and the Vercel functions in /api/ai. */
+export function createAiHandler(apiKey: string | undefined, model = DEFAULT_MODEL) {
   const enabled = Boolean(apiKey)
   const client = enabled ? new GoogleGenAI({ apiKey }) : null
 
-  const handler = async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
-    const url = req.url ?? ''
-    if (!url.startsWith('/api/ai/')) return next()
+  return async (route: AiRoute, req: IncomingMessage, res: ServerResponse) => {
     try {
-      if (url === '/api/ai/status') return json(res, 200, { enabled })
-      if (!client) return json(res, 503, { error: 'AI is not configured. Add GEMINI_API_KEY to app/.env.local and restart.' })
+      if (route === 'status') return json(res, 200, { enabled })
+      if (!client) return json(res, 503, { error: 'AI is not configured. Set GEMINI_API_KEY (app/.env.local locally, or the hosting environment) and restart.' })
       if (req.method !== 'POST') return json(res, 405, { error: 'POST only' })
-
-      if (url === '/api/ai/coach') return await coach(client, model, (await readJson(req)) as CoachBody, res)
-      if (url === '/api/ai/scan') return await scan(client, model, (await readJson(req)) as ScanBody, res)
-      return json(res, 404, { error: 'Not found' })
+      if (route === 'coach') return await coach(client, model, (await readJson(req)) as CoachBody, res)
+      return await scan(client, model, (await readJson(req)) as ScanBody, res)
     } catch (err) {
       console.error('[ai]', err)
       if (res.headersSent) return res.end()
       json(res, statusFor(err), { error: messageFor(err) })
     }
   }
+}
+
+const ROUTES: Record<string, AiRoute> = { '/api/ai/status': 'status', '/api/ai/coach': 'coach', '/api/ai/scan': 'scan' }
+
+/** Serves /api/ai/* from `vite` (dev) and `vite preview`. */
+export function aiPlugin(apiKey: string | undefined, model = DEFAULT_MODEL): Plugin {
+  const handle = createAiHandler(apiKey, model)
+  const middleware = (req: IncomingMessage, res: ServerResponse, next: () => void) => {
+    const url = (req.url ?? '').split('?')[0]
+    if (!url.startsWith('/api/ai/')) return next()
+    const route = ROUTES[url]
+    if (!route) return json(res, 404, { error: 'Not found' })
+    void handle(route, req, res)
+  }
 
   return {
     name: 'lablink-ai',
     configureServer(server) {
-      server.middlewares.use(handler)
+      server.middlewares.use(middleware)
     },
     configurePreviewServer(server) {
-      server.middlewares.use(handler)
+      server.middlewares.use(middleware)
     },
   }
 }
@@ -146,6 +159,9 @@ function safeJson(text: string | undefined): unknown {
 }
 
 function readJson(req: IncomingMessage): Promise<unknown> {
+  // Vercel's Node runtime may already have parsed the body.
+  const parsed = (req as IncomingMessage & { body?: unknown }).body
+  if (parsed !== undefined) return Promise.resolve(typeof parsed === 'string' ? safeJson(parsed) : parsed)
   return new Promise((resolve, reject) => {
     let size = 0
     const chunks: Buffer[] = []

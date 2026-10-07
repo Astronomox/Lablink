@@ -20,6 +20,10 @@ npm run dev
 
 The key is read only by the Vite server (`server/ai.ts`) and never reaches the browser. Without a key the Coach answers from built-in rules and scanning is disabled.
 
+## Deploy (Vercel)
+
+Import the repo in Vercel (framework preset **Vite**, root `./`) and add the environment variable `GEMINI_API_KEY` (optionally `GEMINI_MODEL`). The AI endpoints run as Vercel functions in `api/ai/`, and `vercel.json` proxies MyHealthfinder. Lab report uploads are limited to about 4 MB by Vercel.
+
 ## 3-minute demo script
 
 1. **Landing → Onboarding** — the public homepage opens first; **Enrol now** starts enrolment. The profile is pre-filled (Tobi, 38, BMI 27, family history). Continue → **Import my lab history** pulls 6 FBS results from the (mock) Founda Health FHIR API.
