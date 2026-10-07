@@ -1,6 +1,6 @@
 import type { Lab } from '../lib/types'
 
-// Fictional demo partner labs around Lagos Mainland.
+// Fictional demo partner labs around Lagos Mainland. Prices are illustrative, in naira.
 export const PARTNER_LABS: Lab[] = [
   {
     id: 'akoka',
@@ -11,7 +11,7 @@ export const PARTNER_LABS: Lab[] = [
     lng: 3.3925,
     hours: 'Mon–Sat · 7:00–18:00',
     phone: '+234 801 000 0101',
-    fbsPrice: 2500,
+    prices: { fbs: 2500, hba1c: 7500, bp: 500, chol: 5000 },
     homeSampling: true,
   },
   {
@@ -23,7 +23,7 @@ export const PARTNER_LABS: Lab[] = [
     lng: 3.3768,
     hours: 'Mon–Sun · 6:30–20:00',
     phone: '+234 801 000 0202',
-    fbsPrice: 3000,
+    prices: { fbs: 3000, hba1c: 8500, bp: 1000, chol: 6000 },
     homeSampling: false,
   },
   {
@@ -35,7 +35,7 @@ export const PARTNER_LABS: Lab[] = [
     lng: 3.3802,
     hours: 'Mon–Fri · 7:30–17:00',
     phone: '+234 801 000 0303',
-    fbsPrice: 2000,
+    prices: { fbs: 2000, hba1c: 7000, bp: 500, chol: 4500 },
     homeSampling: false,
   },
   {
@@ -47,7 +47,7 @@ export const PARTNER_LABS: Lab[] = [
     lng: 3.3869,
     hours: 'Mon–Sat · 7:00–16:00',
     phone: '+234 801 000 0404',
-    fbsPrice: 1800,
+    prices: { fbs: 1800, hba1c: 6500, bp: 500, chol: 4000 },
     homeSampling: true,
   },
   {
@@ -59,7 +59,7 @@ export const PARTNER_LABS: Lab[] = [
     lng: 3.3561,
     hours: 'Mon–Sun · 7:00–21:00',
     phone: '+234 801 000 0505',
-    fbsPrice: 3500,
+    prices: { fbs: 3500, hba1c: 9000, bp: 1000, chol: 6500 },
     homeSampling: true,
   },
   {
@@ -71,7 +71,7 @@ export const PARTNER_LABS: Lab[] = [
     lng: 3.3901,
     hours: 'Mon–Sat · 7:00–19:00',
     phone: '+234 801 000 0606',
-    fbsPrice: 2800,
+    prices: { fbs: 2800, hba1c: 8000, bp: 1000, chol: 5500 },
     homeSampling: false,
   },
 ]

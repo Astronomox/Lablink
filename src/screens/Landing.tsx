@@ -28,7 +28,7 @@ const SECTIONS = [
 const card = 'rounded-2xl bg-card ring-1 ring-foreground/10'
 
 export function Landing({ member, memberName, onEnrol, onLogin }: Props) {
-  const prices = PARTNER_LABS.map((l) => l.fbsPrice)
+  const prices = PARTNER_LABS.map((l) => l.prices.fbs)
   const minPrice = Math.min(...prices)
   const homeCount = PARTNER_LABS.filter((l) => l.homeSampling).length
   const primary = member ? (
@@ -206,7 +206,7 @@ export function Landing({ member, memberName, onEnrol, onLogin }: Props) {
                     <TableCell className="pl-5 font-medium">{l.name}</TableCell>
                     <TableCell>{l.area}</TableCell>
                     <TableCell>{l.hours.replace(' · ', ', ')}</TableCell>
-                    <TableCell className="text-right">{naira(l.fbsPrice)}</TableCell>
+                    <TableCell className="text-right">{naira(l.prices.fbs)}</TableCell>
                     <TableCell className="pr-5">{l.homeSampling ? 'Yes' : 'No'}</TableCell>
                   </TableRow>
                 ))}

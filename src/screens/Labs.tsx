@@ -121,7 +121,7 @@ export function Labs({ onBack, onBook }: Props) {
                       {open ? 'Open now' : 'Closed'}
                     </Badge>
                     <span className="text-muted-foreground">{lab.hours.replace(' · ', ', ')}</span>
-                    <span className="font-semibold">₦{lab.fbsPrice.toLocaleString('en-NG')}</span>
+                    <span className="font-semibold">from ₦{Math.min(...Object.values(lab.prices)).toLocaleString('en-NG')}</span>
                     {lab.homeSampling && <Badge variant="outline">Home collection</Badge>}
                   </div>
                   <div className="mt-3 flex gap-2">

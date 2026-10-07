@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local secrets (API keys) never go to git
+.env
+.env.*
+!.env.example

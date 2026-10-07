@@ -7,6 +7,7 @@
  */
 import { formatDate, toIso } from '../lib/dates'
 import type { Reminder } from '../lib/reminders'
+import { TESTS } from '../lib/tests'
 
 export type NotifyPermission = NotificationPermission | 'unsupported'
 
@@ -52,5 +53,5 @@ export function reminderMessage(reminder: Reminder): { title: string; body: stri
       : reminder.daysUntil === 0
         ? 'Due today.'
         : `Due on ${formatDate(toIso(reminder.dueDate))}.`
-  return { title: 'LabLink: checkup due', body: `You are due for your ${months}-month routine blood sugar checkup. ${when} Tap to find a nearby lab.` }
+  return { title: 'LabLink: checkup due', body: `You are due for your ${months}-month routine ${TESTS[reminder.kind].noun} checkup. ${when} Tap to find a nearby lab.` }
 }

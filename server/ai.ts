@@ -15,7 +15,7 @@ const DEFAULT_MODEL = 'gemini-3.8-flash'
 const MAX_BODY_BYTES = 20 * 1024 * 1024
 const BLOCKED_REPLY = 'I can’t help with that one. For anything urgent or specific to your treatment, please speak with a doctor.'
 
-const COACH_SYSTEM = `You are LabLink Coach, a warm, practical preventive-health assistant inside the LabLink app, used mainly by adults in Nigeria to track fasting blood sugar (FBS).
+const COACH_SYSTEM = `You are LabLink Coach, a warm, practical preventive-health assistant inside the LabLink app, used mainly by adults in Nigeria to track their lab results over time: fasting blood sugar, HbA1c, blood pressure and total cholesterol.
 
 How to respond:
 - Ground every answer in the user's own data supplied in the patient context (values, dates, trend, risk score). Quote their numbers.
@@ -25,15 +25,17 @@ How to respond:
 - You support but never replace a clinician. Do not diagnose or prescribe or adjust medication. If a value is in the diabetes range (≥7.0 mmol/L / 126 mg/dL) or the user describes symptoms such as extreme thirst, frequent urination, blurred vision, unexplained weight loss, confusion or fainting, clearly advise seeing a doctor promptly (urgent care for severe symptoms).
 - If asked something outside health, briefly steer back to how LabLink can help.`
 
-const DOCTOR_SYSTEM = `You write concise clinical handover notes for a patient to show their doctor. Write in an SBAR structure (Situation, Background, Assessment, Recommendation) using only the data in the patient context. Use both mg/dL and mmol/L. Be factual and neutral; do not diagnose — state findings against ADA cut-offs (prediabetes 100–125 mg/dL, diabetes ≥126 mg/dL fasting) and list 2–3 questions the patient may want to ask. Keep it under 180 words. Plain text only: label each section on its own line like "Situation:", no markdown symbols.`
+const DOCTOR_SYSTEM = `You write concise clinical handover notes for a patient to show their doctor. Write in an SBAR structure (Situation, Background, Assessment, Recommendation) using only the data in the patient context. Cover every test in the context. Be factual and neutral; do not diagnose — state findings against standard cut-offs (ADA for glucose and HbA1c, ACC/AHA 2017 for blood pressure, NCEP for total cholesterol) and list 2–3 questions the patient may want to ask. Keep it under 180 words. Plain text only: label each section on its own line like "Situation:", no markdown symbols.`
 
 const ScanSchema = z.object({
-  found: z.boolean().describe('True if at least one fasting blood glucose / fasting blood sugar result was found'),
+  found: z.boolean().describe('True if at least one supported result was found'),
   results: z.array(
     z.object({
+      test: z.enum(['fbs', 'hba1c', 'bp', 'chol']).describe('fbs = fasting blood glucose, hba1c = HbA1c, bp = blood pressure, chol = total cholesterol'),
       date: z.string().describe('Sample/collection date as YYYY-MM-DD, or empty string if not shown'),
-      value: z.number().describe('Numeric result exactly as printed'),
-      unit: z.enum(['mg/dL', 'mmol/L']),
+      value: z.number().describe('Numeric result exactly as printed; systolic for blood pressure'),
+      value2: z.number().optional().describe('Diastolic, for blood pressure only'),
+      unit: z.enum(['mg/dL', 'mmol/L', '%', 'mmHg']),
       lab: z.string().describe('Laboratory or facility name, or empty string'),
       testName: z.string().describe('Test name as printed on the report'),
     }),
@@ -41,8 +43,8 @@ const ScanSchema = z.object({
   notes: z.string().describe('One short sentence about anything uncertain, e.g. unreadable date or non-fasting sample'),
 })
 
-const SCAN_PROMPT = `Extract every FASTING blood glucose result (also called FBS, FBG, fasting plasma glucose, fasting blood sugar) from this lab report.
-Ignore random/postprandial glucose, HbA1c and other tests. Copy values and units exactly as printed — do not convert. If the unit is missing, infer it from magnitude (values under 30 are mmol/L).`
+const SCAN_PROMPT = `Extract every result for these tests from this lab report: fasting blood glucose (FBS, FBG, fasting plasma glucose), HbA1c, blood pressure, and total cholesterol.
+Ignore random/postprandial glucose and other tests (LDL, HDL and triglycerides are not total cholesterol). Copy values and units exactly as printed; do not convert. If a glucose or cholesterol unit is missing, infer it from magnitude (values under 30 are mmol/L).`
 
 const SCAN_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 

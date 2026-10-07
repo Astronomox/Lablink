@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { CATEGORY_LABEL, type Category } from '../lib/glucose'
+import type { Band } from '../lib/tests'
 
 interface PanelProps {
   title?: ReactNode
@@ -44,16 +44,13 @@ export function PanelLink({ onClick, children }: { onClick: () => void; children
   )
 }
 
-const TONE: Record<Category, string> = {
-  normal: 'bg-green-50 text-green-700',
-  prediabetes: 'bg-amber-50 text-amber-700',
-  diabetes: 'bg-red-50 text-red-700',
-}
+const TONE = ['bg-green-50 text-green-700', 'bg-amber-50 text-amber-700', 'bg-red-50 text-red-700', 'bg-red-100 text-red-800']
 
-export function StatusPill({ category, className }: { category: Category; className?: string }) {
+/** Status badge for a result band (Normal, Prediabetes range, High, ...). */
+export function StatusPill({ band, className }: { band: Band; className?: string }) {
   return (
-    <Badge variant="secondary" className={cn(TONE[category], className)}>
-      {CATEGORY_LABEL[category]}
+    <Badge variant="secondary" className={cn(TONE[Math.min(band.level, TONE.length - 1)], className)}>
+      {band.label}
     </Badge>
   )
 }

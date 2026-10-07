@@ -4,7 +4,7 @@ import { btn } from '../components/buttons'
 import { CheckRow, Field, Segmented } from '../components/ui'
 import { Input } from '@/components/ui/input'
 import { PageHeader } from '../layout/PageHeader'
-import { importFastingGlucose } from '../services/founda'
+import { importLabHistory } from '../services/founda'
 import type { Profile, Sex, TestResult, Unit } from '../lib/types'
 
 interface Props {
@@ -29,7 +29,7 @@ export function Onboarding({ onDone }: Props) {
 
   async function runImport() {
     setImporting(true)
-    const results = await importFastingGlucose()
+    const results = await importLabHistory()
     onDone(profile, results)
   }
 

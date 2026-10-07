@@ -1,20 +1,26 @@
-import { categorize, toDisplay, unitLabel } from '../lib/glucose'
 import type { Insight } from '../lib/intelligence'
 import type { RiskResult } from '../lib/risk'
-import type { Profile, TestResult } from '../lib/types'
+import { bandOf, formatNumber, resultsOf, TEST_KINDS, TESTS } from '../lib/tests'
+import type { Profile, TestKind, TestResult } from '../lib/types'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
 }
 
+/** One result read from a lab report by the AI service (values exactly as printed). */
 export interface ScannedResult {
+  test: TestKind
   date: string
   value: number
-  unit: 'mg/dL' | 'mmol/L'
+  /** Diastolic, for blood pressure. */
+  value2?: number
+  unit: 'mg/dL' | 'mmol/L' | '%' | 'mmHg'
   lab: string
   testName: string
 }
+
+export type Insights = Partial<Record<TestKind, Insight | null>>
 
 export async function aiStatus(): Promise<boolean> {
   try {
@@ -26,7 +32,7 @@ export async function aiStatus(): Promise<boolean> {
 }
 
 /** Compact, model-friendly snapshot of everything LabLink knows about the user. */
-export function buildContext(profile: Profile, results: TestResult[], insight: Insight | null, risk: RiskResult | null) {
+export function buildContext(profile: Profile, results: TestResult[], insights: Insights, risk: RiskResult | null, focus?: TestKind) {
   return {
     today: new Date().toISOString().slice(0, 10),
     profile: {
@@ -36,24 +42,28 @@ export function buildContext(profile: Profile, results: TestResult[], insight: I
       weightKg: profile.weightKg,
       heightCm: profile.heightCm,
       familyHistoryOfDiabetes: profile.familyHistory,
-      preferredUnit: unitLabel(profile.unit),
     },
-    fastingBloodSugarHistory: results.map((r) => ({
-      date: r.date,
-      mgdl: Math.round(r.valueMgDl),
-      mmolL: toDisplay(r.valueMgDl, 'mmol'),
-      category: categorize(r.valueMgDl),
-      lab: r.lab,
-    })),
-    trendAnalysis: insight && {
-      level: insight.level,
-      headline: insight.headline,
-      changeVsLastTestMgdl: insight.deltaMgDl,
-      trendMgdlPerMonth: insight.slopePerMonth && Math.round(insight.slopePerMonth * 100) / 100,
-      risingStreak: insight.risingStreak,
-      monthsToPrediabetesAtCurrentPace: insight.monthsToThreshold,
-      riskFactors: insight.riskFactors,
-    },
+    focusTest: focus && TESTS[focus].name,
+    tests: TEST_KINDS.flatMap((kind) => {
+      const history = resultsOf(results, kind)
+      if (history.length === 0) return []
+      const def = TESTS[kind]
+      const insight = insights[kind]
+      return [
+        {
+          test: def.name,
+          unit: def.unit(profile.unit),
+          history: history.map((r) => ({ date: r.date, value: formatNumber(r, profile.unit), status: bandOf(r).label, lab: r.lab })),
+          analysis: insight && {
+            level: insight.level,
+            headline: insight.headline,
+            risingStreak: insight.risingStreak,
+            monthsUntilOutsideHealthyRangeAtCurrentPace: insight.monthsToThreshold,
+          },
+        },
+      ]
+    }),
+    riskFactors: Object.values(insights).find(Boolean)?.riskFactors ?? [],
     findriscRiskScore: risk && { score: risk.score, outOf: 26, band: risk.band, tenYearRisk: risk.tenYearRisk },
   }
 }

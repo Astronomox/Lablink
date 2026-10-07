@@ -5,12 +5,12 @@ import { btn } from './components/buttons'
 import { navItem, type Screen } from './layout/nav'
 import { Shell } from './layout/Shell'
 import { toIso, today } from './lib/dates'
-import { formatValue } from './lib/glucose'
-import { analyze, sortByDate } from './lib/intelligence'
-import { nextCheckup } from './lib/reminders'
+import { analyze, sortByDate, type Insight } from './lib/intelligence'
+import { allCheckups } from './lib/reminders'
 import { defaultRiskInputs, findrisc, type RiskInputs } from './lib/risk'
 import { clearAll, usePersistentState } from './lib/store'
-import type { Lab, Profile, TestResult } from './lib/types'
+import { formatResult, kindOf, normalizeResults, TEST_KINDS, TESTS } from './lib/tests'
+import type { Lab, Profile, TestKind, TestResult } from './lib/types'
 import { AddResult } from './screens/AddResult'
 import { BookTest, type Booking } from './screens/BookTest'
 import { Coach } from './screens/Coach'
@@ -47,6 +47,8 @@ export default function App() {
   const [revealed, setRevealed] = useState<TestResult[] | null>(null)
   const [aiEnabled, setAiEnabled] = useState(false)
   const [coachQuestion, setCoachQuestion] = useState<string | null>(null)
+  /** The test the dashboard and Coach are focused on. */
+  const [focus, setFocus] = useState<TestKind>('fbs')
   // Public homepage: shown first to new visitors, and after a reset.
   const [landing, setLanding] = useState(() => profile === null)
   const [notify, setNotify] = usePersistentState<{ enabled: boolean; lastShown?: string }>(KEYS.notify, { enabled: false })
@@ -64,16 +66,22 @@ export default function App() {
     document.title = landing ? 'LabLink' : profile ? `${navItem(screen).label} · LabLink` : 'Enrol · LabLink'
   }, [screen, profile, landing])
 
-  const results = useMemo(() => sortByDate(rawResults), [rawResults])
-  const insight = useMemo(() => (profile ? analyze(results, profile) : null), [results, profile])
-  const reminder = useMemo(() => nextCheckup(results, insight), [results, insight])
+  // normalizeResults also upgrades results saved by older versions (fasting blood sugar only).
+  const results = useMemo(() => sortByDate(normalizeResults(rawResults)), [rawResults])
+  const insights = useMemo(
+    () => Object.fromEntries(TEST_KINDS.map((k) => [k, profile ? analyze(results, profile, k) : null])) as Record<TestKind, Insight | null>,
+    [results, profile],
+  )
+  const reminders = useMemo(() => allCheckups(results, insights), [results, insights])
+  const reminder = reminders[0]
   const effectiveRiskInputs = riskInputs ?? (profile ? defaultRiskInputs(profile) : null)
   const risk = useMemo(() => (profile && effectiveRiskInputs ? findrisc(profile, effectiveRiskInputs, results) : null), [profile, effectiveRiskInputs, results])
   // A booking only matters until its date has passed.
   const activeBooking = booking && booking.date >= toIso(today()) ? booking : null
+  const reminderBooked = activeBooking !== null && (activeBooking.test ?? 'fbs') === reminder.kind
 
   // Remind once a day while a checkup is due and not yet booked: on open, then hourly while open.
-  const remindable = profile !== null && notify.enabled && permission === 'granted' && !activeBooking
+  const remindable = profile !== null && notify.enabled && permission === 'granted' && !reminderBooked
   const message = reminderMessage(reminder)
   useEffect(() => {
     if (!remindable || !message) return
@@ -109,7 +117,7 @@ export default function App() {
       if (p === 'granted') setNotify({ enabled: true })
     },
     onDisable: () => setNotify({ enabled: false }),
-    onTest: () => showNotification('LabLink: reminders are on', message?.body ?? 'We will remind you here when your next blood sugar checkup is due.'),
+    onTest: () => showNotification('LabLink: reminders are on', message?.body ?? 'We will remind you here when your next checkup is due.'),
   }
 
   if (landing) {
@@ -134,13 +142,14 @@ export default function App() {
     setScreen('coach')
   }
   const goHome = () => setScreen('home')
+  const revealedInsight = revealed ? insights[kindOf(revealed[0])] : null
 
   return (
     <Shell
       profile={profile}
       screen={screen}
       onNavigate={setScreen}
-      labsBadge={reminder.status !== 'upcoming' && !activeBooking}
+      labsBadge={reminder.status !== 'upcoming' && !reminderBooked}
       latest={results.at(-1)}
       reminder={reminder}
       booking={activeBooking}
@@ -152,10 +161,12 @@ export default function App() {
           <Dashboard
             profile={profile}
             results={results}
-            insight={insight}
+            insights={insights}
             reminder={reminder}
             booking={activeBooking}
             risk={risk}
+            focus={focus}
+            onFocus={setFocus}
             onFindLab={() => setScreen('labs')}
             onAddResult={() => setAdding(true)}
             onOpenRisk={() => setScreen('risk')}
@@ -170,7 +181,8 @@ export default function App() {
           <Coach
             profile={profile}
             results={results}
-            insight={insight}
+            insights={insights}
+            focus={focus}
             risk={risk}
             aiEnabled={aiEnabled}
             pendingQuestion={coachQuestion}
@@ -179,7 +191,7 @@ export default function App() {
         )}
         {screen === 'labs' && <Labs onBack={goHome} onBook={setBookingLab} />}
         {screen === 'risk' && <Risk profile={profile} results={results} inputs={effectiveRiskInputs} onInputsChange={setRiskInputs} onBack={goHome} onAskCoach={askCoach} />}
-        {screen === 'report' && <DoctorReport profile={profile} results={results} insight={insight} risk={risk} aiEnabled={aiEnabled} onBack={goHome} />}
+        {screen === 'report' && <DoctorReport profile={profile} results={results} insights={insights} risk={risk} aiEnabled={aiEnabled} onBack={goHome} />}
         {screen === 'profile' && (
           <ProfileScreen
             profile={profile}
@@ -205,12 +217,14 @@ export default function App() {
         <AddResult
           unit={profile.unit}
           defaultLab={activeBooking?.labName}
+          defaultKind={activeBooking?.test ?? focus}
           aiEnabled={aiEnabled}
           existing={results}
           onClose={() => setAdding(false)}
           onSave={(added) => {
             setResults((rs) => [...rs, ...added])
-            setBooking(null)
+            if (activeBooking && added.some((r) => kindOf(r) === (activeBooking.test ?? 'fbs'))) setBooking(null)
+            setFocus(kindOf(added[0]))
             setAdding(false)
             setRevealed(added)
             setScreen('home')
@@ -222,6 +236,7 @@ export default function App() {
         <BookTest
           lab={bookingLab}
           profile={profile}
+          defaultKind={reminder.kind}
           onClose={() => {
             setBookingLab(null)
             if (booking) setScreen('home')
@@ -230,7 +245,7 @@ export default function App() {
         />
       )}
 
-      {revealed && insight && (
+      {revealed && revealedInsight && (
         <Sheet
           title="Result analysed"
           onClose={() => setRevealed(null)}
@@ -240,7 +255,7 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   setRevealed(null)
-                  askCoach(`I just got a new result. ${insight.headline}. What exactly should I do over the next 3 months?`)
+                  askCoach(`I just got a new ${TESTS[revealedInsight.kind].measure} result. ${revealedInsight.headline}. What exactly should I do over the next 3 months?`)
                 }}
                 className={btn('secondary', 'lg')}
               >
@@ -255,14 +270,14 @@ export default function App() {
           <p className="mb-3 border-b border-border pb-3 text-muted-foreground">
             {revealed.length === 1 ? (
               <>
-                New result: <b className="text-foreground">{formatValue(revealed[0].valueMgDl, profile.unit)}</b>
+                New {TESTS[kindOf(revealed[0])].measure} result: <b className="text-foreground">{formatResult(revealed[0], profile.unit)}</b>
               </>
             ) : (
               <>{revealed.length} new results</>
             )}
             , compared with {results.length} results on record.
           </p>
-          <InsightCard insight={insight} />
+          <InsightCard insight={revealedInsight} />
         </Sheet>
       )}
     </Shell>

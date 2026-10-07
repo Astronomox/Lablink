@@ -5,19 +5,21 @@ import { RichText } from '../components/RichText'
 import { btn } from '../components/buttons'
 import { PageHeader } from '../layout/PageHeader'
 import { isDesktopNow } from '../layout/useMedia'
-import { formatDate } from '../lib/dates'
-import { formatValue } from '../lib/glucose'
-import { bmi, type Insight } from '../lib/intelligence'
+import type { Insight } from '../lib/intelligence'
 import { offlineReply } from '../lib/offlineCoach'
 import type { RiskResult } from '../lib/risk'
 import { usePersistentState } from '../lib/store'
-import type { Profile, TestResult } from '../lib/types'
+import { bmi } from '../lib/profile'
+import { bandOf, formatResult, resultsOf, TEST_KINDS, TESTS } from '../lib/tests'
+import type { Profile, TestKind, TestResult } from '../lib/types'
 import { buildContext, streamCoach, type ChatMessage } from '../services/ai'
 
 interface Props {
   profile: Profile
   results: TestResult[]
-  insight: Insight | null
+  insights: Record<TestKind, Insight | null>
+  /** Test the dashboard was showing; questions that don't name a test are about this one. */
+  focus: TestKind
   risk: RiskResult | null
   aiEnabled: boolean
   /** Question handed over from another screen; sent once on arrival. */
@@ -27,12 +29,13 @@ interface Props {
 
 const SUGGESTIONS = [
   'Why is my blood sugar going up?',
-  'What Nigerian foods should I swap?',
+  'Is my blood pressure OK?',
+  'What Nigerian foods help lower my cholesterol?',
   'How worried should I be about my results?',
-  'Make me a 7-day plan to bring it down',
+  'Make me a 7-day plan for my results',
 ]
 
-export function Coach({ profile, results, insight, risk, aiEnabled, pendingQuestion, onPendingConsumed }: Props) {
+export function Coach({ profile, results, insights, focus, risk, aiEnabled, pendingQuestion, onPendingConsumed }: Props) {
   const [messages, setMessages] = usePersistentState<ChatMessage[]>('lablink.chat', [])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
@@ -75,16 +78,16 @@ export function Coach({ profile, results, insight, risk, aiEnabled, pendingQuest
         setStreaming(t)
       }
       try {
-        reply = await streamCoach({ context: buildContext(profile, results, insight, risk), messages: next }, onText, ctrl.signal)
+        reply = await streamCoach({ context: buildContext(profile, results, insights, risk, focus), messages: next }, onText, ctrl.signal)
       } catch (err) {
         reply = ctrl.signal.aborted
           ? `${partial} …`
-          : `${offlineReply(question, profile, results, insight, risk)}\n\n(AI unavailable: ${(err as Error).message} Showing a built-in answer.)`
+          : `${offlineReply(question, profile, results, insights, risk, focus)}\n\n(AI unavailable: ${(err as Error).message} Showing a built-in answer.)`
       }
       setStreaming(null)
     } else {
       await new Promise((r) => setTimeout(r, 450))
-      reply = offlineReply(question, profile, results, insight, risk)
+      reply = offlineReply(question, profile, results, insights, risk, focus)
     }
     setMessages([...next, { role: 'assistant', content: reply.trim() || '…' }])
     setBusy(false)
@@ -92,7 +95,6 @@ export function Coach({ profile, results, insight, risk, aiEnabled, pendingQuest
 
   const status = aiEnabled ? 'Answers use your results and risk score.' : 'Offline: answers come from built-in guidance.'
   const clear = () => setMessages([])
-  const latest = results.at(-1)
   const b = bmi(profile)
 
   return (
@@ -173,14 +175,15 @@ export function Coach({ profile, results, insight, risk, aiEnabled, pendingQuest
           <Panel title="What the Coach can see" bodyClassName="">
             <table className="w-full text-sm">
               <tbody className="[&_td]:border-t [&_td]:border-border [&_td]:px-5 [&_td]:py-2.5 [&_td]:align-top [&_td:first-child]:pr-0">
-                <tr>
-                  <td className="text-muted-foreground">Latest</td>
-                  <td>{latest ? `${formatValue(latest.valueMgDl, profile.unit)}, ${formatDate(latest.date)}` : 'None'}</td>
-                </tr>
-                <tr>
-                  <td className="text-muted-foreground">Trend</td>
-                  <td>{insight ? insight.headline : 'Not enough results'}</td>
-                </tr>
+                {TEST_KINDS.map((k) => {
+                  const latest = resultsOf(results, k).at(-1)
+                  return (
+                    <tr key={k}>
+                      <td className="text-muted-foreground">{TESTS[k].short}</td>
+                      <td>{latest ? `${formatResult(latest, profile.unit)}, ${bandOf(latest).label.toLowerCase()}` : 'No result yet'}</td>
+                    </tr>
+                  )
+                })}
                 {risk && (
                   <tr>
                     <td className="text-muted-foreground">Risk</td>
@@ -202,7 +205,7 @@ export function Coach({ profile, results, insight, risk, aiEnabled, pendingQuest
           </Panel>
           <p className="px-1 text-xs text-muted-foreground">
             {aiEnabled ? 'Your data is sent to the AI service only when you ask a question.' : 'Offline mode: nothing leaves this device.'} The Coach does not diagnose or prescribe. See a doctor
-            promptly for extreme thirst, blurred vision or unexplained weight loss.
+            promptly for chest pain, a severe headache, extreme thirst, blurred vision or unexplained weight loss.
           </p>
         </aside>
       </div>

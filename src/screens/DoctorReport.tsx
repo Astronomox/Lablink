@@ -6,32 +6,34 @@ import { TrendChart } from '../components/TrendChart'
 import { btn } from '../components/buttons'
 import { PageHeader } from '../layout/PageHeader'
 import { formatDate, toIso, today } from '../lib/dates'
-import { categorize, formatValue, toDisplay } from '../lib/glucose'
-import { bmi, type Insight } from '../lib/intelligence'
+import type { Insight } from '../lib/intelligence'
+import { bmi } from '../lib/profile'
+import { bandOf, formatResult, resultsOf, TEST_KINDS, TESTS } from '../lib/tests'
 import type { RiskResult } from '../lib/risk'
-import type { Profile, TestResult } from '../lib/types'
+import type { Profile, TestKind, TestResult } from '../lib/types'
 import { buildContext, streamCoach } from '../services/ai'
 
 interface Props {
   profile: Profile
   results: TestResult[]
-  insight: Insight | null
+  insights: Record<TestKind, Insight | null>
   risk: RiskResult
   aiEnabled: boolean
   onBack: () => void
 }
 
-export function DoctorReport({ profile, results, insight, risk, aiEnabled, onBack }: Props) {
+export function DoctorReport({ profile, results, insights, risk, aiEnabled, onBack }: Props) {
   const [note, setNote] = useState<string | null>(null)
   const [noteBusy, setNoteBusy] = useState(false)
   const [noteError, setNoteError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const latest = results.at(-1)
+  const tested = TEST_KINDS.filter((k) => resultsOf(results, k).length > 0)
+  const flagged = tested.filter((k) => (insights[k]?.band.level ?? 0) > 0)
   const b = bmi(profile)
   const todayIso = toIso(today())
 
   const questions = [
-    latest && categorize(latest.valueMgDl) !== 'normal' ? 'Should I have an HbA1c test to confirm these results?' : 'How often should I repeat my fasting blood sugar test?',
+    flagged.length ? `My ${flagged.map((k) => TESTS[k].measure).join(' and ')} ${flagged.length > 1 ? 'are' : 'is'} above normal. What follow-up tests do I need?` : 'How often should I repeat these tests?',
     'Are there changes to my diet or activity you would prioritise for me?',
     risk.score >= 12 ? 'Given my risk score, should I be screened for blood pressure and cholesterol too?' : 'Is there anything else I should be screened for at my age?',
   ]
@@ -42,7 +44,7 @@ export function DoctorReport({ profile, results, insight, risk, aiEnabled, onBac
     setNote('')
     try {
       await streamCoach(
-        { mode: 'doctor', context: buildContext(profile, results, insight, risk), messages: [{ role: 'user', content: 'Write the clinical handover note.' }] },
+        { mode: 'doctor', context: buildContext(profile, results, insights, risk), messages: [{ role: 'user', content: 'Write the clinical handover note.' }] },
         setNote,
       )
     } catch (err) {
@@ -55,9 +57,11 @@ export function DoctorReport({ profile, results, insight, risk, aiEnabled, onBac
   function summaryText(): string {
     return [
       `LabLink health summary: ${profile.name}, ${profile.age}, ${profile.sex}`,
-      `Fasting blood sugar history:`,
-      ...results.map((r) => `• ${formatDate(r.date)}: ${Math.round(r.valueMgDl)} mg/dL (${toDisplay(r.valueMgDl, 'mmol').toFixed(1)} mmol/L)${r.lab ? `, ${r.lab}` : ''}`),
-      insight ? `Trend: ${insight.headline}.` : '',
+      ...tested.flatMap((k) => [
+        `${TESTS[k].name}:`,
+        ...resultsOf(results, k).map((r) => `• ${formatDate(r.date)}: ${formatResult(r, profile.unit)} (${bandOf(r).label})${r.lab ? `, ${r.lab}` : ''}`),
+        insights[k] ? `  Trend: ${insights[k]?.headline}.` : '',
+      ]),
       `FINDRISC risk score: ${risk.score}/26 (${risk.band}, ${risk.tenYearRisk} 10-year risk).`,
       note ? `\n${note}` : '',
     ]
@@ -106,7 +110,7 @@ export function DoctorReport({ profile, results, insight, risk, aiEnabled, onBac
           <header className="flex flex-wrap items-start justify-between gap-3 border-b-2 border-foreground pb-3">
             <div>
               <Logo className="h-8" />
-              <h2 className="mt-1 text-lg font-semibold">Fasting blood sugar summary</h2>
+              <h2 className="mt-1 text-lg font-semibold">Lab results summary</h2>
             </div>
             <p className="text-right text-sm">
               Date: {formatDate(todayIso, { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -119,49 +123,44 @@ export function DoctorReport({ profile, results, insight, risk, aiEnabled, onBac
             {profile.familyHistory ? ', family history of diabetes' : ''}
           </p>
 
-          <Section title="Trend">
-            {results.length >= 2 ? <TrendChart results={results} unit={profile.unit} className="h-52" /> : <p className="text-muted-foreground">Not enough results for a trend yet.</p>}
-          </Section>
-
-          <Section title="Results">
-            <table className="w-full text-left text-sm print:text-xs">
-              <thead>
-                <tr className="border-b border-foreground [&_th]:py-1 [&_th]:pr-3">
-                  <th>Date</th>
-                  <th className="max-sm:hidden print:table-cell">Lab</th>
-                  <th className="text-right">mg/dL</th>
-                  <th className="text-right">mmol/L</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody className="[&_td]:border-b [&_td]:border-border [&_td]:py-1 [&_td]:pr-3 print:[&_td]:py-[2px]">
-                {[...results].reverse().map((r) => (
-                  <tr key={r.id}>
-                    <td className="whitespace-nowrap">{formatDate(r.date)}</td>
-                    <td className="max-sm:hidden print:table-cell">{r.lab ?? '—'}</td>
-                    <td className="text-right">{Math.round(r.valueMgDl)}</td>
-                    <td className="text-right">{toDisplay(r.valueMgDl, 'mmol').toFixed(1)}</td>
-                    <td>
-                      <StatusPill category={categorize(r.valueMgDl)} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Section>
-
           <Section title="Summary">
             <ul className="list-disc space-y-1 pl-5 text-sm print:text-xs">
-              <li>
-                Latest result: <b>{latest ? formatValue(latest.valueMgDl, profile.unit) : 'none'}</b>
-                {latest && ` on ${formatDate(latest.date)}`}.
-              </li>
-              {insight && <li>Trend: {insight.headline}.</li>}
+              {tested.map((k) => {
+                const latest = resultsOf(results, k).at(-1)!
+                return (
+                  <li key={k}>
+                    {TESTS[k].name}: <b>{formatResult(latest, profile.unit)}</b> on {formatDate(latest.date)} ({bandOf(latest).label.toLowerCase()}){insights[k] ? `. ${insights[k]?.headline}.` : '.'}
+                  </li>
+                )
+              })}
               <li>
                 FINDRISC diabetes risk score: <b>{risk.score}/26</b> ({risk.band}), a 10-year risk of {risk.tenYearRisk.replace('≈', 'about ')}.
               </li>
             </ul>
           </Section>
+
+          {tested.map((k) => {
+            const own = resultsOf(results, k)
+            return (
+              <Section key={k} title={TESTS[k].name}>
+                {own.length >= 2 && <TrendChart results={own} kind={k} unit={profile.unit} className="mb-2 h-40" />}
+                <table className="w-full text-left text-sm print:text-xs">
+                  <tbody className="[&_td]:border-b [&_td]:border-border [&_td]:py-1 [&_td]:pr-3 print:[&_td]:py-[2px]">
+                    {[...own].reverse().map((r) => (
+                      <tr key={r.id}>
+                        <td className="whitespace-nowrap">{formatDate(r.date)}</td>
+                        <td className="max-sm:hidden print:table-cell">{r.lab ?? '—'}</td>
+                        <td className="text-right whitespace-nowrap">{formatResult(r, profile.unit)}</td>
+                        <td>
+                          <StatusPill band={bandOf(r)} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Section>
+            )
+          })}
 
           <Section
             title="Note"
@@ -182,7 +181,7 @@ export function DoctorReport({ profile, results, insight, risk, aiEnabled, onBac
             ) : (
               !noteBusy && (
                 <p className="text-sm print:text-xs">
-                  {insight ? `${insight.headline}. ${insight.explanation}` : 'No trend analysis yet.'}
+                  {tested.map((k) => insights[k]?.headline).filter(Boolean).join('. ') || 'No trend analysis yet.'}
                   {!aiEnabled && <span className="mt-1 block text-xs text-muted-foreground print:hidden">An AI-written clinical note (SBAR) needs the AI service, which is not set up.</span>}
                   {noteError && <span className="mt-1 block text-xs text-red-600 print:hidden">AI note unavailable: {noteError}</span>}
                 </p>

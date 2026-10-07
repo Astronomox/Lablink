@@ -3,8 +3,8 @@
  * Lindström & Tuomilehto, Diabetes Care 2003. Validated in European cohorts;
  * shown here as an indicative screening score, not a diagnosis.
  */
-import { PREDIABETES_MGDL } from './glucose'
-import { bmi } from './intelligence'
+import { bmi } from './profile'
+import { kindOf, TESTS } from './tests'
 import type { Profile, TestResult } from './types'
 
 export type FamilyHistory = 'none' | 'second' | 'first'
@@ -38,7 +38,8 @@ export function defaultRiskInputs(profile: Profile): RiskInputs {
 
 export function findrisc(profile: Profile, inputs: RiskInputs, results: TestResult[]): RiskResult {
   const b = bmi({ ...profile, weightKg: inputs.weightKg }) ?? 0
-  const highGlucoseEver = results.some((r) => r.valueMgDl >= PREDIABETES_MGDL)
+  // FINDRISC asks whether high blood glucose was ever found: fasting blood sugar or HbA1c above normal.
+  const highGlucoseEver = results.some((r) => (kindOf(r) === 'fbs' || kindOf(r) === 'hba1c') && TESTS[kindOf(r)].classify(r.value) > 0)
   const male = profile.sex === 'male'
 
   const breakdown = [

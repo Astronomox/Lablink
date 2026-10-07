@@ -5,9 +5,9 @@ import { btn } from '../components/buttons'
 import { CheckRow, Field, Segmented } from '../components/ui'
 import { Input } from '@/components/ui/input'
 import { PageHeader } from '../layout/PageHeader'
-import { categorize, formatValue } from '../lib/glucose'
 import { formatDate } from '../lib/dates'
-import { bmi } from '../lib/intelligence'
+import { bmi } from '../lib/profile'
+import { bandOf, formatResult, kindOf, TESTS } from '../lib/tests'
 import type { Profile, Sex, TestResult, Unit } from '../lib/types'
 import type { ReminderAlerts } from '../services/notifications'
 
@@ -134,7 +134,7 @@ export function ProfileScreen({ profile, results, onChange, onDeleteResult, onRe
               {[...results].reverse().map((r) => (
                 <li key={r.id} className="flex items-center gap-3 px-5 py-3">
                   <div className="min-w-0 flex-1">
-                    <span className="font-semibold">{formatValue(r.valueMgDl, profile.unit)}</span> <StatusPill category={categorize(r.valueMgDl)} />
+                    <span className="font-semibold">{TESTS[kindOf(r)].name}: {formatResult(r, profile.unit)}</span> <StatusPill band={bandOf(r)} />
                     <div className="truncate text-xs text-muted-foreground">
                       {formatDate(r.date)}, {r.lab ?? 'lab not recorded'}
                     </div>

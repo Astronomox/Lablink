@@ -1,9 +1,11 @@
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
 import { Panel, StatusPill } from '../components/Panel'
 import { btn } from '../components/buttons'
 import { PageHeader } from '../layout/PageHeader'
 import { formatDate } from '../lib/dates'
-import { categorize, toDisplay, unitLabel } from '../lib/glucose'
-import type { Profile, TestResult, Unit } from '../lib/types'
+import { bandOf, formatResult, kindOf, resultsOf, TEST_KINDS, TESTS } from '../lib/tests'
+import type { Profile, TestKind, TestResult } from '../lib/types'
 
 interface Props {
   profile: Profile
@@ -12,20 +14,17 @@ interface Props {
   onBack: () => void
 }
 
-const fmt = (mgdl: number, unit: Unit) => (unit === 'mmol' ? toDisplay(mgdl, 'mmol').toFixed(1) : String(toDisplay(mgdl, 'mgdl')))
-const alt = (unit: Unit): Unit => (unit === 'mmol' ? 'mgdl' : 'mmol')
+type Filter = TestKind | 'all'
 
-/** All results, newest first. */
+/** All results, newest first, filterable by test. */
 export function Results({ profile, results, onAddResult, onBack }: Props) {
+  const [filter, setFilter] = useState<Filter>('all')
   const unit = profile.unit
-  const rows = [...results].reverse()
-  const change = (i: number) => {
-    const prev = rows[i + 1]
-    if (!prev) return '—'
-    const d = toDisplay(rows[i].valueMgDl, unit) - toDisplay(prev.valueMgDl, unit)
-    const s = unit === 'mmol' ? Math.abs(d).toFixed(1) : String(Math.abs(Math.round(d)))
-    return d > 0 ? `+${s}` : d < 0 ? `−${s}` : '0'
-  }
+  const shown = (filter === 'all' ? results : resultsOf(results, filter)).slice().reverse()
+  const filters: [Filter, string, number][] = [
+    ['all', 'All', results.length],
+    ...TEST_KINDS.map((k): [Filter, string, number] => [k, TESTS[k].name, resultsOf(results, k).length]),
+  ]
 
   return (
     <>
@@ -49,42 +48,57 @@ export function Results({ profile, results, onAddResult, onBack }: Props) {
         }
       />
 
-      <div className="max-lg:px-4 max-lg:pt-4">
-        {results.length === 0 ? (
+      <div className="space-y-4 max-lg:px-4 max-lg:pt-4">
+        <div role="group" aria-label="Show results for" className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] print:hidden">
+          {filters.map(([f, label, count]) => (
+            <button
+              key={f}
+              type="button"
+              aria-pressed={filter === f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                'shrink-0 rounded-4xl px-4 py-2 text-sm font-medium whitespace-nowrap ring-1 transition-colors',
+                filter === f ? 'bg-primary text-primary-foreground ring-primary' : 'bg-card ring-foreground/10 hover:bg-muted',
+              )}
+            >
+              {label} <span className={filter === f ? 'text-primary-foreground/70' : 'text-muted-foreground'}>{count}</span>
+            </button>
+          ))}
+        </div>
+
+        {shown.length === 0 ? (
           <Panel title="Results">
-            <p>No results on record yet.</p>
+            <p className="text-muted-foreground">No {filter === 'all' ? '' : `${TESTS[filter].measure} `}results on record yet.</p>
             <button type="button" onClick={onAddResult} className={`${btn('primary')} mt-3`}>
-              Add your first result
+              Add a result
             </button>
           </Panel>
         ) : (
           <>
             {/* Desktop and print */}
-            <Panel title={`${results.length} results`} bodyClassName="" className="max-lg:hidden print:block">
+            <Panel title={`${shown.length} results`} bodyClassName="" className="max-lg:hidden print:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-muted-foreground [&_th]:px-5 [&_th]:py-2 [&_th]:font-normal">
                     <th>Date</th>
+                    <th>Test</th>
+                    <th className="text-right">Result</th>
+                    <th>Status</th>
                     <th>Lab</th>
                     <th>Source</th>
-                    <th className="text-right">{unitLabel(unit)}</th>
-                    <th className="text-right">{unitLabel(alt(unit))}</th>
-                    <th className="text-right">Change</th>
-                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody className="[&_td]:px-5 [&_td]:py-2.5 [&_tr]:border-t [&_tr]:border-border">
-                  {rows.map((r, i) => (
+                  {shown.map((r) => (
                     <tr key={r.id}>
                       <td className="whitespace-nowrap">{formatDate(r.date)}</td>
+                      <td>{TESTS[kindOf(r)].name}</td>
+                      <td className="text-right font-semibold whitespace-nowrap">{formatResult(r, unit)}</td>
+                      <td>
+                        <StatusPill band={bandOf(r)} />
+                      </td>
                       <td>{r.lab ?? '—'}</td>
                       <td className="text-muted-foreground">{r.source === 'founda' ? 'Imported' : 'Added by you'}</td>
-                      <td className="text-right font-semibold">{fmt(r.valueMgDl, unit)}</td>
-                      <td className="text-right text-muted-foreground">{fmt(r.valueMgDl, alt(unit))}</td>
-                      <td className="text-right">{change(i)}</td>
-                      <td>
-                        <StatusPill category={categorize(r.valueMgDl)} />
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -93,25 +107,22 @@ export function Results({ profile, results, onAddResult, onBack }: Props) {
 
             {/* Mobile */}
             <ul className="divide-y divide-border overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10 lg:hidden print:hidden">
-              {rows.map((r) => (
+              {shown.map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-3 px-5 py-4">
                   <div className="min-w-0">
-                    <div className="font-semibold">{formatDate(r.date)}</div>
-                    <div className="truncate text-sm text-muted-foreground">{r.lab ?? 'Lab not recorded'}</div>
+                    <div className="font-semibold">{TESTS[kindOf(r)].name}</div>
+                    <div className="truncate text-sm text-muted-foreground">
+                      {formatDate(r.date)}
+                      {r.lab ? `, ${r.lab}` : ''}
+                    </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="mb-1 text-base font-semibold">
-                      {fmt(r.valueMgDl, unit)} <span className="text-xs font-normal text-muted-foreground">{unitLabel(unit)}</span>
-                    </div>
-                    <StatusPill category={categorize(r.valueMgDl)} />
+                    <div className="mb-1 text-base font-semibold whitespace-nowrap">{formatResult(r, unit)}</div>
+                    <StatusPill band={bandOf(r)} />
                   </div>
                 </li>
               ))}
             </ul>
-
-            <p className="mt-3 text-xs text-muted-foreground">
-              Normal: below 5.6 mmol/L (100 mg/dL). Prediabetes: 5.6 to 6.9 mmol/L (100 to 125 mg/dL). Diabetes range: 7.0 mmol/L (126 mg/dL) or higher.
-            </p>
           </>
         )}
       </div>
