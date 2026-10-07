@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { Logo } from '../components/Logo'
 import { StatusPill } from '../components/Panel'
 import { RichText } from '../components/RichText'
 import { TrendChart } from '../components/TrendChart'
@@ -101,31 +102,31 @@ export function DoctorReport({ profile, results, insight, risk, aiEnabled, onBac
       <div className="max-lg:px-4 max-lg:pt-4 print:p-0">
         <div className="mb-3 grid grid-cols-2 gap-2 lg:hidden print:hidden">{buttons('lg')}</div>
 
-        <article aria-label="Doctor’s summary" className="border border-rule bg-white p-5 max-lg:rounded-lg max-lg:border-rule-soft max-lg:p-4 lg:p-8 print:border-0 print:p-0">
-          <header className="flex flex-wrap items-start justify-between gap-3 border-b-2 border-ink pb-3">
+        <article aria-label="Doctor’s summary" className="rounded-2xl bg-card p-5 ring-1 ring-foreground/10 lg:p-10 print:rounded-none print:p-0 print:ring-0">
+          <header className="flex flex-wrap items-start justify-between gap-3 border-b-2 border-foreground pb-3">
             <div>
-              <p className="text-[18px] font-bold text-brand-700">LabLink</p>
-              <h2 className="text-[16px] font-bold">Fasting blood sugar summary</h2>
+              <Logo markClassName="size-6" className="text-primary" />
+              <h2 className="mt-1 text-lg font-semibold">Fasting blood sugar summary</h2>
             </div>
-            <p className="text-right text-[13px]">
+            <p className="text-right text-sm">
               Date: {formatDate(todayIso, { day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           </header>
 
-          <p className="mt-3 text-[14px]">
+          <p className="mt-3 text-sm">
             <b>Patient:</b> {profile.name}, {profile.age} years, {profile.sex === 'male' ? 'male' : 'female'}
             {b ? `, BMI ${b}` : ''}
             {profile.familyHistory ? ', family history of diabetes' : ''}
           </p>
 
           <Section title="Trend">
-            {results.length >= 2 ? <TrendChart results={results} unit={profile.unit} className="h-52" /> : <p className="text-muted">Not enough results for a trend yet.</p>}
+            {results.length >= 2 ? <TrendChart results={results} unit={profile.unit} className="h-52" /> : <p className="text-muted-foreground">Not enough results for a trend yet.</p>}
           </Section>
 
           <Section title="Results">
-            <table className="w-full text-left text-[13px] print:text-[11px]">
+            <table className="w-full text-left text-sm print:text-xs">
               <thead>
-                <tr className="border-b border-ink [&_th]:py-1 [&_th]:pr-3">
+                <tr className="border-b border-foreground [&_th]:py-1 [&_th]:pr-3">
                   <th>Date</th>
                   <th className="max-sm:hidden print:table-cell">Lab</th>
                   <th className="text-right">mg/dL</th>
@@ -133,7 +134,7 @@ export function DoctorReport({ profile, results, insight, risk, aiEnabled, onBac
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody className="[&_td]:border-b [&_td]:border-rule-soft [&_td]:py-1 [&_td]:pr-3 print:[&_td]:py-[2px]">
+              <tbody className="[&_td]:border-b [&_td]:border-border [&_td]:py-1 [&_td]:pr-3 print:[&_td]:py-[2px]">
                 {[...results].reverse().map((r) => (
                   <tr key={r.id}>
                     <td className="whitespace-nowrap">{formatDate(r.date)}</td>
@@ -150,7 +151,7 @@ export function DoctorReport({ profile, results, insight, risk, aiEnabled, onBac
           </Section>
 
           <Section title="Summary">
-            <ul className="list-disc space-y-1 pl-5 text-[14px] print:text-[12px]">
+            <ul className="list-disc space-y-1 pl-5 text-sm print:text-xs">
               <li>
                 Latest result: <b>{latest ? formatValue(latest.valueMgDl, profile.unit) : 'none'}</b>
                 {latest && ` on ${formatDate(latest.date)}`}.
@@ -172,32 +173,32 @@ export function DoctorReport({ profile, results, insight, risk, aiEnabled, onBac
               ) : null
             }
           >
-            {noteBusy && !note && <p className="text-muted">Writing note…</p>}
+            {noteBusy && !note && <p className="text-muted-foreground">Writing note…</p>}
             {note ? (
-              <div className="text-[14px] print:text-[12px]">
+              <div className="text-sm print:text-xs">
                 <RichText text={note} />
-                <p className="mt-2 text-[12px] text-muted">Drafted by AI from LabLink data. Please check it.</p>
+                <p className="mt-2 text-xs text-muted-foreground">Drafted by AI from LabLink data. Please check it.</p>
               </div>
             ) : (
               !noteBusy && (
-                <p className="text-[14px] print:text-[12px]">
+                <p className="text-sm print:text-xs">
                   {insight ? `${insight.headline}. ${insight.explanation}` : 'No trend analysis yet.'}
-                  {!aiEnabled && <span className="mt-1 block text-[12px] text-muted print:hidden">An AI-written clinical note (SBAR) needs the AI service, which is not set up.</span>}
-                  {noteError && <span className="mt-1 block text-[12px] text-oxblood-600 print:hidden">AI note unavailable: {noteError}</span>}
+                  {!aiEnabled && <span className="mt-1 block text-xs text-muted-foreground print:hidden">An AI-written clinical note (SBAR) needs the AI service, which is not set up.</span>}
+                  {noteError && <span className="mt-1 block text-xs text-red-600 print:hidden">AI note unavailable: {noteError}</span>}
                 </p>
               )
             )}
           </Section>
 
           <Section title="Questions for my doctor">
-            <ol className="list-decimal space-y-1 pl-5 text-[14px] print:text-[12px]">
+            <ol className="list-decimal space-y-1 pl-5 text-sm print:text-xs">
               {questions.map((q) => (
                 <li key={q}>{q}</li>
               ))}
             </ol>
           </Section>
 
-          <p className="mt-6 border-t border-rule pt-2 text-[11px] text-muted print:mt-3">
+          <p className="mt-6 border-t border-border pt-2 text-xs text-muted-foreground print:mt-3">
             Prepared by the patient using LabLink. Ranges use ADA fasting cut-offs (prediabetes 100 to 125 mg/dL, diabetes 126 mg/dL or higher). This is not a diagnosis.
           </p>
         </article>
@@ -209,7 +210,7 @@ export function DoctorReport({ profile, results, insight, risk, aiEnabled, onBac
 function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
     <section className="mt-5 break-inside-avoid print:mt-3">
-      <h3 className="mb-2 flex items-center justify-between gap-3 border-b border-rule pb-1 text-[14px] font-bold print:mb-1">
+      <h3 className="mb-2 flex items-center justify-between gap-3 border-b border-border pb-1 text-sm font-semibold print:mb-1">
         {title}
         {action}
       </h3>

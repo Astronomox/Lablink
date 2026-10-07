@@ -61,9 +61,9 @@ export function Results({ profile, results, onAddResult, onBack }: Props) {
           <>
             {/* Desktop and print */}
             <Panel title={`${results.length} results`} bodyClassName="" className="max-lg:hidden print:block">
-              <table className="w-full text-[13px]">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-rule text-left text-muted [&_th]:px-3 [&_th]:py-1.5 [&_th]:font-normal">
+                  <tr className="border-b border-border text-left text-muted-foreground [&_th]:px-5 [&_th]:py-2 [&_th]:font-normal">
                     <th>Date</th>
                     <th>Lab</th>
                     <th>Source</th>
@@ -73,14 +73,14 @@ export function Results({ profile, results, onAddResult, onBack }: Props) {
                     <th>Status</th>
                   </tr>
                 </thead>
-                <tbody className="[&_td]:px-3 [&_td]:py-1.5 [&_tr:nth-child(even)]:bg-vellum">
+                <tbody className="[&_td]:px-5 [&_td]:py-2.5 [&_tr]:border-t [&_tr]:border-border">
                   {rows.map((r, i) => (
                     <tr key={r.id}>
                       <td className="whitespace-nowrap">{formatDate(r.date)}</td>
                       <td>{r.lab ?? '—'}</td>
-                      <td className="text-muted">{r.source === 'founda' ? 'Imported' : 'Added by you'}</td>
-                      <td className="text-right font-bold">{fmt(r.valueMgDl, unit)}</td>
-                      <td className="text-right text-muted">{fmt(r.valueMgDl, alt(unit))}</td>
+                      <td className="text-muted-foreground">{r.source === 'founda' ? 'Imported' : 'Added by you'}</td>
+                      <td className="text-right font-semibold">{fmt(r.valueMgDl, unit)}</td>
+                      <td className="text-right text-muted-foreground">{fmt(r.valueMgDl, alt(unit))}</td>
                       <td className="text-right">{change(i)}</td>
                       <td>
                         <StatusPill category={categorize(r.valueMgDl)} />
@@ -92,16 +92,16 @@ export function Results({ profile, results, onAddResult, onBack }: Props) {
             </Panel>
 
             {/* Mobile */}
-            <ul className="divide-y divide-rule-soft overflow-hidden rounded-lg border border-rule-soft bg-white lg:hidden print:hidden">
+            <ul className="divide-y divide-border overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10 lg:hidden print:hidden">
               {rows.map((r) => (
-                <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <li key={r.id} className="flex items-center justify-between gap-3 px-5 py-4">
                   <div className="min-w-0">
-                    <div className="font-bold">{formatDate(r.date)}</div>
-                    <div className="truncate text-[13px] text-muted">{r.lab ?? 'Lab not recorded'}</div>
+                    <div className="font-semibold">{formatDate(r.date)}</div>
+                    <div className="truncate text-sm text-muted-foreground">{r.lab ?? 'Lab not recorded'}</div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="text-[16px] font-bold">
-                      {fmt(r.valueMgDl, unit)} <span className="text-[12px] font-normal text-muted">{unitLabel(unit)}</span>
+                    <div className="mb-1 text-base font-semibold">
+                      {fmt(r.valueMgDl, unit)} <span className="text-xs font-normal text-muted-foreground">{unitLabel(unit)}</span>
                     </div>
                     <StatusPill category={categorize(r.valueMgDl)} />
                   </div>
@@ -109,7 +109,7 @@ export function Results({ profile, results, onAddResult, onBack }: Props) {
               ))}
             </ul>
 
-            <p className="mt-3 text-[12px] text-muted">
+            <p className="mt-3 text-xs text-muted-foreground">
               Normal: below 5.6 mmol/L (100 mg/dL). Prediabetes: 5.6 to 6.9 mmol/L (100 to 125 mg/dL). Diabetes range: 7.0 mmol/L (126 mg/dL) or higher.
             </p>
           </>

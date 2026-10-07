@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Input } from '@/components/ui/input'
 import { Panel } from '../components/Panel'
 import { RichText } from '../components/RichText'
 import { btn } from '../components/buttons'
@@ -109,7 +110,7 @@ export function Coach({ profile, results, insight, risk, aiEnabled, pendingQuest
         }
         mobileActions={
           messages.length > 0 && (
-            <button type="button" onClick={clear} className="text-[14px] text-brand-600">
+            <button type="button" onClick={clear} className={btn('ghost', 'sm')}>
               Clear
             </button>
           )
@@ -117,31 +118,32 @@ export function Coach({ profile, results, insight, risk, aiEnabled, pendingQuest
       />
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start lg:gap-5">
-        <section className="lg:panel lg:flex lg:h-[clamp(460px,calc(100dvh-300px),720px)] lg:flex-col" aria-label="Conversation">
-          <div ref={listRef} role="log" aria-live="polite" className="flex flex-col gap-3 px-4 pt-4 pb-20 lg:flex-1 lg:overflow-y-auto lg:px-3 lg:pt-3 lg:pb-3">
+        <section
+          className="lg:flex lg:h-[clamp(460px,calc(100dvh-300px),720px)] lg:flex-col lg:overflow-hidden lg:rounded-2xl lg:bg-card lg:ring-1 lg:ring-foreground/10"
+          aria-label="Conversation"
+        >
+          <div ref={listRef} role="log" aria-live="polite" className="flex flex-col gap-3 px-4 pt-2 pb-24 lg:flex-1 lg:overflow-y-auto lg:p-5">
             {messages.length === 0 && (
-              <div className="rounded-lg border border-rule-soft bg-white p-4 lg:rounded-none lg:border-0 lg:p-1">
-                <p className="font-bold">Ask a question about your results</p>
-                <p className="mt-1 text-[13px] text-muted">
+              <div className="rounded-2xl bg-card p-5 ring-1 ring-foreground/10 lg:p-0 lg:ring-0">
+                <p className="font-semibold">Ask a question about your results</p>
+                <p className="mt-1 text-sm text-muted-foreground">
                   The Coach can see your {results.length} results{risk ? ` and your risk score (${risk.score}/26)` : ''}. It does not replace a doctor.
                 </p>
-                <ul className="mt-3 divide-y divide-rule-soft border-y border-rule-soft">
+                <div className="mt-4 flex flex-wrap gap-2">
                   {SUGGESTIONS.map((s) => (
-                    <li key={s}>
-                      <button type="button" onClick={() => send(s)} className="w-full py-2.5 text-left text-brand-600 hover:underline">
-                        {s}
-                      </button>
-                    </li>
+                    <button key={s} type="button" onClick={() => send(s)} className={`${btn('secondary')} h-auto py-2 whitespace-normal text-left`}>
+                      {s}
+                    </button>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
 
             {messages.map((m, i) => (
               <Bubble key={i} role={m.role} text={m.content} />
             ))}
-            {streaming ? <Bubble role="assistant" text={streaming} /> : busy && <p className="text-[13px] text-muted">The Coach is typing…</p>}
-            <div ref={endRef} className="scroll-mb-[calc(var(--tabbar-h)+env(safe-area-inset-bottom)+4.5rem)]" />
+            {streaming ? <Bubble role="assistant" text={streaming} /> : busy && <p className="text-sm text-muted-foreground">The Coach is typing…</p>}
+            <div ref={endRef} className="scroll-mb-[calc(var(--tabbar-h)+env(safe-area-inset-bottom)+5rem)]" />
           </div>
 
           <form
@@ -149,25 +151,18 @@ export function Coach({ profile, results, insight, risk, aiEnabled, pendingQuest
               e.preventDefault()
               send(draft)
             }}
-            className="bottom-tabbar fixed inset-x-0 z-30 flex gap-2 border-t border-rule bg-white px-3 py-2 lg:static lg:z-auto lg:bg-vellum"
+            className="bottom-tabbar fixed inset-x-0 z-30 flex gap-2 border-t border-border bg-card/95 px-4 py-3 backdrop-blur lg:static lg:z-auto"
           >
             <label htmlFor="coach-input" className="sr-only">
               Your question
             </label>
-            <input
-              id="coach-input"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Type your question"
-              autoComplete="off"
-              className="min-w-0 flex-1 rounded-[3px] border border-rule bg-white px-3 py-2 text-[14px] outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 max-lg:rounded-full max-lg:px-4 max-lg:text-[16px]"
-            />
+            <Input id="coach-input" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Type your question" autoComplete="off" className="h-10 flex-1" />
             {busy && aiEnabled ? (
-              <button type="button" onClick={() => abortRef.current?.abort()} className={`${btn('secondary')} max-lg:rounded-full`}>
+              <button type="button" onClick={() => abortRef.current?.abort()} className={btn('secondary', 'lg')}>
                 Stop
               </button>
             ) : (
-              <button type="submit" disabled={!draft.trim() || busy} className={`${btn('primary')} max-lg:rounded-full max-lg:px-4`}>
+              <button type="submit" disabled={!draft.trim() || busy} className={btn('primary', 'lg')}>
                 Send
               </button>
             )}
@@ -176,26 +171,26 @@ export function Coach({ profile, results, insight, risk, aiEnabled, pendingQuest
 
         <aside className="space-y-4 max-lg:hidden" aria-label="What the Coach can see">
           <Panel title="What the Coach can see" bodyClassName="">
-            <table className="w-full text-[13px]">
-              <tbody className="[&_td]:border-b [&_td]:border-rule-soft [&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_tr:last-child_td]:border-b-0">
+            <table className="w-full text-sm">
+              <tbody className="[&_td]:border-t [&_td]:border-border [&_td]:px-5 [&_td]:py-2.5 [&_td]:align-top [&_td:first-child]:pr-0">
                 <tr>
-                  <td className="text-muted">Latest</td>
+                  <td className="text-muted-foreground">Latest</td>
                   <td>{latest ? `${formatValue(latest.valueMgDl, profile.unit)}, ${formatDate(latest.date)}` : 'None'}</td>
                 </tr>
                 <tr>
-                  <td className="text-muted">Trend</td>
+                  <td className="text-muted-foreground">Trend</td>
                   <td>{insight ? insight.headline : 'Not enough results'}</td>
                 </tr>
                 {risk && (
                   <tr>
-                    <td className="text-muted">Risk</td>
+                    <td className="text-muted-foreground">Risk</td>
                     <td>
                       {risk.score}/26 ({risk.band})
                     </td>
                   </tr>
                 )}
                 <tr>
-                  <td className="text-muted">Profile</td>
+                  <td className="text-muted-foreground">Profile</td>
                   <td>
                     {profile.age}, {profile.sex}
                     {b ? `, BMI ${b}` : ''}
@@ -205,7 +200,7 @@ export function Coach({ profile, results, insight, risk, aiEnabled, pendingQuest
               </tbody>
             </table>
           </Panel>
-          <p className="text-[12px] text-muted">
+          <p className="px-1 text-xs text-muted-foreground">
             {aiEnabled ? 'Your data is sent to the AI service only when you ask a question.' : 'Offline mode: nothing leaves this device.'} The Coach does not diagnose or prescribe. See a doctor
             promptly for extreme thirst, blurred vision or unexplained weight loss.
           </p>
@@ -219,14 +214,14 @@ function Bubble({ role, text }: { role: ChatMessage['role']; text: string }) {
   if (role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-[3px] bg-brand-600 px-3 py-2 text-white max-lg:rounded-2xl max-lg:rounded-br-md max-lg:px-4">{text}</div>
+        <div className="max-w-[85%] rounded-3xl rounded-br-md bg-primary px-4 py-2.5 text-primary-foreground">{text}</div>
       </div>
     )
   }
   return (
     <div className="flex justify-start">
-      <div className="max-w-[90%] rounded-[3px] border border-rule bg-white px-3 py-2 max-lg:rounded-2xl max-lg:rounded-bl-md max-lg:border-rule-soft max-lg:px-4">
-        <p className="mb-1 text-[12px] font-bold text-muted">Coach</p>
+      <div className="max-w-[90%] rounded-3xl rounded-bl-md bg-muted px-4 py-3 lg:max-w-[80%]">
+        <p className="mb-1 text-xs font-medium text-muted-foreground">Coach</p>
         <RichText text={text} />
       </div>
     </div>

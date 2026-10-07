@@ -2,6 +2,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, Marker, TileLayer, Tooltip, useMap, ZoomControl } from 'react-leaflet'
+import { Badge } from '@/components/ui/badge'
 import { Panel } from '../components/Panel'
 import { btn } from '../components/buttons'
 import { DEFAULT_LOCATION, distanceKm, isOpenNow, PARTNER_LABS } from '../data/labs'
@@ -77,7 +78,7 @@ export function Labs({ onBack, onBook }: Props) {
 
       <div className="max-lg:space-y-3 max-lg:px-4 max-lg:pt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-5">
         <div className="lg:sticky lg:top-4 lg:order-2">
-          <div className="h-56 overflow-hidden rounded-lg border border-rule-soft lg:h-[520px] lg:rounded-none lg:border-rule">
+          <div className="isolate h-60 overflow-hidden rounded-2xl ring-1 ring-foreground/10 lg:h-[560px]">
             <MapContainer center={[here.lat, here.lng]} zoom={13} zoomControl={false} className="h-full w-full">
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <ZoomControl position="bottomright" />
@@ -95,7 +96,7 @@ export function Labs({ onBack, onBook }: Props) {
         </div>
 
         <Panel title={`${labs.length} partner labs`} className="lg:order-1" bodyClassName="">
-          <ol className="divide-y divide-rule-soft">
+          <ol className="divide-y divide-border">
             {labs.map(({ lab, km, open }, i) => {
               const isSel = lab.id === selected
               return (
@@ -104,38 +105,33 @@ export function Labs({ onBack, onBook }: Props) {
                   ref={(el) => {
                     itemRefs.current[lab.id] = el
                   }}
-                  className={`px-3 py-3 max-lg:px-4 ${isSel ? 'bg-brand-50' : ''}`}
+                  className={`px-5 py-4 transition-colors ${isSel ? 'bg-accent' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <button type="button" aria-pressed={isSel} onClick={() => setSelected(lab.id)} className="min-w-0 text-left">
-                      <span className="font-bold text-brand-700 hover:underline">
+                      <span className="font-semibold hover:underline">
                         {i + 1}. {lab.name}
                       </span>
-                      <span className="block text-[13px] text-muted">{lab.address}</span>
+                      <span className="block text-sm text-muted-foreground">{lab.address}</span>
                     </button>
-                    <span className="shrink-0 text-[13px] font-bold">{km.toFixed(1)} km</span>
+                    <span className="shrink-0 text-sm font-semibold">{km.toFixed(1)} km</span>
                   </div>
-                  <p className="mt-1 text-[13px]">
-                    <span className={open ? 'font-bold text-[#1e7b34]' : 'text-muted'}>{open ? 'Open now' : 'Closed'}</span>
-                    {' · '}
-                    {lab.hours.replace(' · ', ', ')}
-                    {' · '}
-                    <b>₦{lab.fbsPrice.toLocaleString('en-NG')}</b>
-                    {lab.homeSampling && ' · Home collection'}
-                  </p>
-                  <div className="mt-2 flex gap-2">
-                    <button type="button" onClick={() => onBook(lab)} className={`${btn('primary', 'sm')} max-lg:flex-1 max-lg:py-2 max-lg:text-[14px]`}>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-sm">
+                    <Badge variant="secondary" className={open ? 'bg-green-50 text-green-700' : ''}>
+                      {open ? 'Open now' : 'Closed'}
+                    </Badge>
+                    <span className="text-muted-foreground">{lab.hours.replace(' · ', ', ')}</span>
+                    <span className="font-semibold">₦{lab.fbsPrice.toLocaleString('en-NG')}</span>
+                    {lab.homeSampling && <Badge variant="outline">Home collection</Badge>}
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button type="button" onClick={() => onBook(lab)} className={`${btn('primary')} max-lg:flex-1`}>
                       Book test
                     </button>
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${lab.lat},${lab.lng}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={`${btn('secondary', 'sm')} max-lg:py-2 max-lg:text-[14px]`}
-                    >
+                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${lab.lat},${lab.lng}`} target="_blank" rel="noreferrer" className={btn('secondary')}>
                       Directions
                     </a>
-                    <a href={`tel:${lab.phone.replace(/\s/g, '')}`} className={`${btn('secondary', 'sm')} max-lg:py-2 max-lg:text-[14px]`}>
+                    <a href={`tel:${lab.phone.replace(/\s/g, '')}`} className={btn('secondary')}>
                       Call
                     </a>
                   </div>
@@ -145,7 +141,7 @@ export function Labs({ onBack, onBook }: Props) {
           </ol>
         </Panel>
       </div>
-      <p className="mt-3 text-[12px] text-muted max-lg:px-4">These are demo partner labs.</p>
+      <p className="mt-3 text-xs text-muted-foreground max-lg:px-4">These are demo partner labs.</p>
     </>
   )
 }

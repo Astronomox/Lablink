@@ -1,4 +1,8 @@
 import { useState } from 'react'
+import { Bar, BarChart, Cell, XAxis, YAxis } from 'recharts'
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
+import { Input } from '@/components/ui/input'
+import { Slider } from '@/components/ui/slider'
 import { Panel } from '../components/Panel'
 import { btn } from '../components/buttons'
 import { CheckRow, Field, Segmented } from '../components/ui'
@@ -39,12 +43,12 @@ export function Risk({ profile, results, inputs, onInputsChange, onBack, onAskCo
           <Panel title="Your score" className="order-1 lg:order-none">
             <Score result={current} />
             {changed && (
-              <div className="mt-3 border-t border-rule-soft pt-3">
-                <p className="text-[13px] font-bold text-muted">With the changes below</p>
+              <div className="mt-4 border-t border-border pt-4">
+                <p className="mb-1 text-sm font-medium text-muted-foreground">With the changes below</p>
                 <Score result={projected} />
               </div>
             )}
-            <p className="mt-3 text-[14px]" aria-live="polite">
+            <p className="mt-4 text-sm" aria-live="polite">
               {changed ? (
                 <>
                   These changes would lower your score by <b>{current.score - projected.score} points</b>, from {current.tenYearRisk.replace('≈', 'about ')} to {projected.tenYearRisk.replace('≈', 'about ')} chance of type 2
@@ -56,24 +60,17 @@ export function Risk({ profile, results, inputs, onInputsChange, onBack, onAskCo
             </p>
           </Panel>
 
-          <Panel title="How the score is worked out" className="order-4 lg:order-none" bodyClassName="">
-            <table className="w-full text-[13px]">
-              <tbody className="[&_td]:border-b [&_td]:border-rule-soft [&_td]:px-3 [&_td]:py-1.5 max-lg:[&_td]:px-4">
-                {current.breakdown.map((b) => (
-                  <tr key={b.label}>
-                    <td>{b.label}</td>
-                    <td className="text-right font-bold">{b.points}</td>
-                  </tr>
-                ))}
-                <tr className="bg-vellum">
-                  <td className="font-bold">Total</td>
-                  <td className="text-right font-bold">
-                    {current.score} / {MAX_FINDRISC}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <p className="px-3 py-2 text-[12px] text-muted max-lg:px-4">
+          <Panel
+            title="Where your points come from"
+            className="order-4 lg:order-none"
+            action={
+              <span className="text-sm text-muted-foreground">
+                Total <b className="text-foreground">{current.score}</b> / {MAX_FINDRISC}
+              </span>
+            }
+          >
+            <BreakdownChart breakdown={current.breakdown} />
+            <p className="mt-3 text-xs text-muted-foreground">
               FINDRISC (Lindström and Tuomilehto, 2003) is a screening tool, not a diagnosis. It was developed in Finland and may be less accurate for other populations. The high blood sugar
               item is filled in from your results.
             </p>
@@ -82,9 +79,9 @@ export function Risk({ profile, results, inputs, onInputsChange, onBack, onAskCo
 
         <div className="contents lg:flex lg:flex-col lg:gap-5">
           <Panel title="What if I…" className="order-2 lg:order-none">
-            <div className="space-y-4">
-              <Slider label={`Lose ${loseKg} kg`} sub={`${inputs.weightKg - loseKg} kg`} value={loseKg} max={20} onChange={setLoseKg} />
-              <Slider label={`Trim waist by ${trimWaist} cm`} sub={`${inputs.waistCm - trimWaist} cm`} value={trimWaist} max={15} onChange={setTrimWaist} />
+            <div className="space-y-5">
+              <WhatIfSlider label={`Lose ${loseKg} kg`} sub={`${inputs.weightKg - loseKg} kg`} value={loseKg} max={20} onChange={setLoseKg} />
+              <WhatIfSlider label={`Trim waist by ${trimWaist} cm`} sub={`${inputs.waistCm - trimWaist} cm`} value={trimWaist} max={15} onChange={setTrimWaist} />
               <CheckRow label="Walk 30 minutes every day" checked={walk} onChange={setWalk} />
               <CheckRow label="Eat vegetables or fruit every day" checked={veg} onChange={setVeg} />
             </div>
@@ -125,41 +122,57 @@ export function Risk({ profile, results, inputs, onInputsChange, onBack, onAskCo
 
 function Score({ result }: { result: RiskResult }) {
   const pct = (Math.min(result.score, MAX_FINDRISC) / MAX_FINDRISC) * 100
-  const color = result.score >= 15 ? 'bg-oxblood-600' : result.score >= 12 ? 'bg-ochre-500' : 'bg-[#1e7b34]'
+  const color = result.score >= 15 ? 'bg-red-600' : result.score >= 12 ? 'bg-amber-500' : 'bg-green-600'
   return (
     <div>
-      <p>
-        <b className="text-[22px]">{result.score}</b> / {MAX_FINDRISC} <span className="capitalize">({result.band} risk)</span>
+      <p className="flex items-baseline gap-1.5">
+        <span className="text-4xl font-semibold tracking-tight">{result.score}</span>
+        <span className="text-muted-foreground">/ {MAX_FINDRISC}</span>
+        <span className="ml-auto text-sm font-medium capitalize">{result.band} risk</span>
       </p>
-      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-rule-soft" aria-hidden>
-        <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+      <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   )
 }
 
-function Slider({ label, sub, value, max, onChange }: { label: string; sub: string; value: number; max: number; onChange: (v: number) => void }) {
+function WhatIfSlider({ label, sub, value, max, onChange }: { label: string; sub: string; value: number; max: number; onChange: (v: number) => void }) {
   return (
-    <label className="block">
-      <span className="flex justify-between text-[14px]">
-        <b>{label}</b>
-        <span className="text-muted">{sub}</span>
-      </span>
-      <input type="range" min={0} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="mt-1 w-full accent-brand-600" />
-    </label>
+    <div className="space-y-3">
+      <div className="flex justify-between text-sm">
+        <span className="font-medium">{label}</span>
+        <span className="text-muted-foreground">{sub}</span>
+      </div>
+      <Slider aria-label={label} min={0} max={max} step={1} value={[value]} onValueChange={([v]) => onChange(v)} />
+    </div>
   )
 }
 
 function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
     <Field label={label}>
-      <input
-        type="number"
-        inputMode="decimal"
-        value={value || ''}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full rounded-[3px] border border-rule bg-white px-3 py-2 text-[14px] outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 max-lg:rounded-md max-lg:text-[16px]"
-      />
+      <Input type="number" inputMode="decimal" value={value || ''} onChange={(e) => onChange(Number(e.target.value))} />
     </Field>
+  )
+}
+
+const breakdownConfig = { points: { label: 'Points', color: 'var(--chart-1)' } } satisfies ChartConfig
+
+/** Horizontal bar per FINDRISC factor; factors scoring 0 are dimmed. */
+function BreakdownChart({ breakdown }: { breakdown: RiskResult['breakdown'] }) {
+  return (
+    <ChartContainer config={breakdownConfig} className="aspect-auto w-full" style={{ height: breakdown.length * 34 + 16 }}>
+      <BarChart data={breakdown} layout="vertical" margin={{ top: 0, right: 28, bottom: 0, left: 0 }}>
+        <XAxis type="number" hide domain={[0, 5]} />
+        <YAxis type="category" dataKey="label" tickLine={false} axisLine={false} width={190} tickMargin={6} />
+        <ChartTooltip cursor={false} content={<ChartTooltipContent hideIndicator />} />
+        <Bar dataKey="points" radius={8} isAnimationActive={false} label={{ position: 'right', fontSize: 12, fill: 'var(--foreground)' }}>
+          {breakdown.map((b) => (
+            <Cell key={b.label} fill={b.points ? 'var(--color-points)' : 'var(--muted)'} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ChartContainer>
   )
 }

@@ -23,8 +23,18 @@ import { ProfileScreen } from './screens/ProfileScreen'
 import { Results } from './screens/Results'
 import { Risk } from './screens/Risk'
 import { aiStatus } from './services/ai'
+import { notifyPermission, reminderMessage, requestNotifyPermission, showNotification, type NotifyPermission, type ReminderAlerts } from './services/notifications'
 
-const KEYS = { profile: 'lablink.profile', results: 'lablink.results', booking: 'lablink.booking', risk: 'lablink.risk', chat: 'lablink.chat' }
+const KEYS = {
+  profile: 'lablink.profile',
+  results: 'lablink.results',
+  booking: 'lablink.booking',
+  risk: 'lablink.risk',
+  chat: 'lablink.chat',
+  notify: 'lablink.notify',
+}
+
+const HOUR_MS = 60 * 60 * 1000
 
 export default function App() {
   const [profile, setProfile] = usePersistentState<Profile | null>(KEYS.profile, null)
@@ -39,6 +49,8 @@ export default function App() {
   const [coachQuestion, setCoachQuestion] = useState<string | null>(null)
   // Public homepage: shown first to new visitors, and after a reset.
   const [landing, setLanding] = useState(() => profile === null)
+  const [notify, setNotify] = usePersistentState<{ enabled: boolean; lastShown?: string }>(KEYS.notify, { enabled: false })
+  const [permission, setPermission] = useState<NotifyPermission>(notifyPermission)
 
   useEffect(() => {
     aiStatus().then(setAiEnabled)
@@ -59,6 +71,46 @@ export default function App() {
   const risk = useMemo(() => (profile && effectiveRiskInputs ? findrisc(profile, effectiveRiskInputs, results) : null), [profile, effectiveRiskInputs, results])
   // A booking only matters until its date has passed.
   const activeBooking = booking && booking.date >= toIso(today()) ? booking : null
+
+  // Remind once a day while a checkup is due and not yet booked: on open, then hourly while open.
+  const remindable = profile !== null && notify.enabled && permission === 'granted' && !activeBooking
+  const message = reminderMessage(reminder)
+  useEffect(() => {
+    if (!remindable || !message) return
+    const check = () => {
+      const day = toIso(today())
+      if (notify.lastShown === day) return
+      showNotification(message.title, message.body)
+      setNotify((n) => ({ ...n, lastShown: day }))
+    }
+    check()
+    const timer = setInterval(check, HOUR_MS)
+    return () => clearInterval(timer)
+  }, [remindable, message?.body, notify.lastShown]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tapping a notification focuses LabLink and opens the screen it points at.
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const onMessage = (e: MessageEvent) => {
+      if (e.data?.type !== 'lablink:open') return
+      setLanding(false)
+      setScreen(e.data.screen === 'labs' ? 'labs' : 'home')
+    }
+    navigator.serviceWorker.addEventListener('message', onMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage)
+  }, [])
+
+  const alerts: ReminderAlerts = {
+    permission,
+    enabled: notify.enabled && permission === 'granted',
+    onEnable: async () => {
+      const p = await requestNotifyPermission()
+      setPermission(p)
+      if (p === 'granted') setNotify({ enabled: true })
+    },
+    onDisable: () => setNotify({ enabled: false }),
+    onTest: () => showNotification('LabLink: reminders are on', message?.body ?? 'We will remind you here when your next blood sugar checkup is due.'),
+  }
 
   if (landing) {
     return <Landing member={profile !== null} memberName={profile?.name} onEnrol={() => setLanding(false)} onLogin={() => setLanding(false)} />
@@ -110,6 +162,7 @@ export default function App() {
             onOpenReport={() => setScreen('report')}
             onAskCoach={askCoach}
             onNavigate={setScreen}
+            alerts={alerts}
           />
         )}
         {screen === 'results' && <Results profile={profile} results={results} onAddResult={() => setAdding(true)} onBack={goHome} />}
@@ -133,12 +186,14 @@ export default function App() {
             results={results}
             onChange={setProfile}
             onDeleteResult={(id) => setResults((rs) => rs.filter((r) => r.id !== id))}
+            alerts={alerts}
             onReset={() => {
               clearAll(Object.values(KEYS))
               setProfile(null)
               setResults([])
               setBooking(null)
               setRiskInputs(null)
+              setNotify({ enabled: false })
               setScreen('home')
               setLanding(true)
             }}
@@ -197,10 +252,10 @@ export default function App() {
             </div>
           }
         >
-          <p className="mb-3 border-b border-rule-soft pb-3 text-muted">
+          <p className="mb-3 border-b border-border pb-3 text-muted-foreground">
             {revealed.length === 1 ? (
               <>
-                New result: <b className="text-ink">{formatValue(revealed[0].valueMgDl, profile.unit)}</b>
+                New result: <b className="text-foreground">{formatValue(revealed[0].valueMgDl, profile.unit)}</b>
               </>
             ) : (
               <>{revealed.length} new results</>
