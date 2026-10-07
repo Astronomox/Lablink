@@ -1,6 +1,9 @@
-import { Bot, Home, MapPin, Menu, User, X } from 'lucide-react'
+import { Bot, Home, MapPin, Menu, Plus, User } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { useModal } from '../components/useModal'
+import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { cn } from '@/lib/utils'
+import { Logo } from '../components/Logo'
 import { formatDate } from '../lib/dates'
 import type { Reminder } from '../lib/reminders'
 import type { Profile, TestResult } from '../lib/types'
@@ -46,68 +49,109 @@ export function Shell({ profile, screen, onNavigate, labsBadge = false, latest, 
           Skip to content
         </a>
 
-        {/* Desktop */}
-        <header className="hidden border-b border-rule bg-white lg:block print:hidden">
-          <div className="mx-auto flex h-16 max-w-[1100px] items-center justify-between px-5">
-            <button type="button" onClick={() => member && go('home')} className="flex items-center gap-2">
-              <Logo />
-              <span className="text-[22px] font-bold text-brand-700">LabLink</span>
+        <header className="sticky top-0 z-40 border-b border-border bg-card/95 pt-[env(safe-area-inset-top)] backdrop-blur print:hidden">
+          <div className="mx-auto flex h-14 max-w-[1180px] items-center gap-3 px-4 lg:h-16 lg:gap-6 lg:px-6">
+            {member && (
+              <Button variant="ghost" size="icon" onClick={() => setDrawer(true)} aria-label="Open menu" aria-expanded={drawer} className="-ml-2 lg:hidden">
+                <Menu className="size-5" />
+              </Button>
+            )}
+            <button type="button" onClick={() => member && go('home')} aria-label="LabLink dashboard">
+              <Logo markClassName="size-7" />
             </button>
             {member && (
-              <div className="text-right text-[13px]">
-                <div>
-                  Welcome, <b>{profile.name}</b>
-                </div>
-                <div className="text-muted">{latest ? `Last result: ${formatDate(latest.date)}` : 'No results yet'}</div>
+              <nav aria-label="Main menu" className="hidden flex-1 lg:block">
+                <ul className="flex items-center gap-1">
+                  {NAV.map((n) => {
+                    const active = n.id === screen
+                    return (
+                      <li key={n.id}>
+                        <button
+                          type="button"
+                          onClick={() => go(n.id)}
+                          aria-current={active ? 'page' : undefined}
+                          className={cn(
+                            'relative rounded-4xl px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors xl:px-3.5',
+                            active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                          )}
+                        >
+                          {n.label}
+                          {n.id === 'labs' && labsBadge && <DueDot className="absolute top-1.5 right-1.5" />}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </nav>
+            )}
+            {member && (
+              <div className="ml-auto hidden text-right text-sm leading-tight xl:block">
+                <div className="font-medium">{profile.name}</div>
+                <div className="text-xs text-muted-foreground">{latest ? `Last result ${formatDate(latest.date)}` : 'No results yet'}</div>
               </div>
             )}
           </div>
-          {member && <MenuBar screen={screen} onNavigate={go} labsBadge={labsBadge} />}
         </header>
 
-        {/* Mobile */}
-        <header className="sticky top-0 z-40 bg-brand-700 pt-[env(safe-area-inset-top)] text-white lg:hidden print:hidden">
-          <div className="flex h-12 items-center gap-2 px-2">
-            {member ? (
-              <button type="button" onClick={() => setDrawer(true)} aria-label="Open menu" aria-expanded={drawer} className="grid size-10 place-items-center">
-                <Menu size={22} />
-              </button>
-            ) : (
-              <span className="w-2" />
-            )}
-            <span className="text-[18px] font-bold">LabLink</span>
-          </div>
-        </header>
-        {member && drawer && (
-          <Drawer
-            profile={profile}
-            screen={screen}
-            labsBadge={labsBadge}
-            onNavigate={go}
-            onPublicHome={onPublicHome}
-            onClose={() => setDrawer(false)}
-          />
+        {member && (
+          <Sheet open={drawer} onOpenChange={setDrawer}>
+            <SheetContent side="left" className="w-[min(82vw,320px)] gap-0 p-0 lg:hidden" onOpenAutoFocus={(e) => e.preventDefault()}>
+              <SheetHeader className="border-b border-border p-5">
+                <SheetTitle>
+                  <Logo markClassName="size-7" />
+                </SheetTitle>
+                <SheetDescription>Signed in as {profile.name}</SheetDescription>
+              </SheetHeader>
+              <nav aria-label="Menu" className="flex-1 overflow-y-auto p-3">
+                <ul className="space-y-1">
+                  {NAV.map((n) => {
+                    const active = n.id === screen
+                    return (
+                      <li key={n.id}>
+                        <button
+                          type="button"
+                          onClick={() => go(n.id)}
+                          aria-current={active ? 'page' : undefined}
+                          className={cn('flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[15px]', active ? 'bg-accent font-semibold text-accent-foreground' : 'hover:bg-muted')}
+                        >
+                          <n.icon className="size-5 text-primary" aria-hidden />
+                          {n.label}
+                          {n.id === 'labs' && labsBadge && <DueDot className="ml-auto" />}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+                {onPublicHome && (
+                  <button type="button" onClick={onPublicHome} className="mt-2 w-full rounded-2xl px-3 py-3 text-left text-[15px] text-primary hover:bg-muted">
+                    LabLink home
+                  </button>
+                )}
+              </nav>
+              <p className="border-t border-border p-5 text-xs text-muted-foreground">For information only, not a diagnosis. support@lablink.demo</p>
+            </SheetContent>
+          </Sheet>
         )}
 
         <div ref={setBand} className="hidden lg:block print:hidden" />
 
-        <div className="mx-auto w-full max-w-[1100px] flex-1 lg:px-5 lg:py-5 print:max-w-none print:p-0">
-          <div className={member ? 'lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-5 print:block' : ''}>
+        <div className="mx-auto w-full max-w-[1180px] flex-1 lg:px-6 lg:py-6 print:max-w-none print:p-0">
+          <div className={member ? 'lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start lg:gap-6 print:block' : ''}>
             {member && (
-              <aside className="hidden lg:block print:hidden" aria-label="Side menu">
-                <SideMenu onNavigate={go} onAddResult={onAddResult} />
+              <aside className="sticky top-24 hidden space-y-4 lg:block print:hidden" aria-label="Quick links">
+                <QuickLinks onNavigate={go} onAddResult={onAddResult} />
               </aside>
             )}
-            <main id="main" tabIndex={-1} className={`min-w-0 outline-none ${member ? 'pb-tabbar' : 'pb-6'} lg:pb-0 print:p-0`}>
+            <main id="main" tabIndex={-1} className={cn('min-w-0 outline-none lg:pb-0 print:p-0', member ? 'pb-tabbar' : 'pb-8')}>
               {children}
             </main>
           </div>
         </div>
 
-        <footer className={`border-t border-rule bg-white px-4 py-3 text-center text-[12px] text-muted print:hidden ${member ? 'max-lg:hidden' : ''}`}>
+        <footer className={cn('border-t border-border px-4 py-5 text-center text-xs text-muted-foreground print:hidden', member && 'max-lg:hidden')}>
           {onPublicHome && (
             <>
-              <button type="button" onClick={onPublicHome} className="text-brand-600 hover:underline">
+              <button type="button" onClick={onPublicHome} className="text-primary hover:underline">
                 LabLink home
               </button>
               {' · '}
@@ -122,160 +166,60 @@ export function Shell({ profile, screen, onNavigate, labsBadge = false, latest, 
   )
 }
 
-function Logo() {
+function DueDot({ className }: { className?: string }) {
   return (
-    <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden>
-      <rect width="28" height="28" rx="4" className="fill-brand-700" />
-      <path d="M14 6c-3 4.2-5 7.1-5 9.6a5 5 0 0 0 10 0C19 13.1 17 10.2 14 6z" fill="#fff" />
-    </svg>
-  )
-}
-
-function Badge() {
-  return (
-    <span className="ml-1.5 inline-block rounded-full bg-oxblood-600 px-1.5 text-[11px] leading-[16px] font-bold text-white">
-      1<span className="sr-only"> checkup due</span>
+    <span className={cn('size-2 rounded-full bg-orange-500', className)}>
+      <span className="sr-only"> (checkup due)</span>
     </span>
   )
 }
 
-function MenuBar({ screen, onNavigate, labsBadge }: { screen: Screen; onNavigate: (s: Screen) => void; labsBadge: boolean }) {
+function QuickLinks({ onNavigate, onAddResult }: { onNavigate: (s: Screen) => void; onAddResult?: () => void }) {
+  const link = 'w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-muted'
   return (
-    <nav aria-label="Main menu" className="bg-brand-700">
-      <ul className="mx-auto flex max-w-[1100px] px-5">
-        {NAV.map((n) => {
-          const active = n.id === screen
-          return (
-            <li key={n.id}>
-              <button
-                type="button"
-                onClick={() => onNavigate(n.id)}
-                aria-current={active ? 'page' : undefined}
-                className={`h-10 px-3.5 text-[13px] font-bold ${active ? 'bg-white text-brand-700' : 'text-white hover:bg-brand-600'}`}
-              >
-                {n.label}
-                {n.id === 'labs' && labsBadge && <Badge />}
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-    </nav>
-  )
-}
-
-function SideMenu({ onNavigate, onAddResult }: { onNavigate: (s: Screen) => void; onAddResult?: () => void }) {
-  const link = 'block w-full border-b border-rule-soft px-3 py-2 text-left text-[13px] last:border-b-0 hover:bg-brand-50'
-  return (
-    <div className="space-y-4">
-      <div className="panel">
-        <h2 className="border-b border-rule bg-vellum px-3 py-2 text-[13px] font-bold">Quick links</h2>
-        <button type="button" onClick={onAddResult} className={`${link} text-brand-600`}>
-          Add a result
-        </button>
-        <button type="button" onClick={() => onNavigate('labs')} className={`${link} text-brand-600`}>
+    <>
+      <Button onClick={onAddResult} className="w-full" size="lg">
+        <Plus /> Add a result
+      </Button>
+      <div className="rounded-2xl bg-card p-2 ring-1 ring-foreground/10">
+        <p className="px-3 pt-2 pb-1 text-xs font-medium text-muted-foreground">Quick links</p>
+        <button type="button" onClick={() => onNavigate('labs')} className={link}>
           Book a test
         </button>
-        <button type="button" onClick={() => onNavigate('coach')} className={`${link} text-brand-600`}>
+        <button type="button" onClick={() => onNavigate('coach')} className={link}>
           Ask the Coach
         </button>
-        <button type="button" onClick={() => onNavigate('report')} className={`${link} text-brand-600`}>
+        <button type="button" onClick={() => onNavigate('report')} className={link}>
           Print doctor’s summary
         </button>
       </div>
-      <div className="panel px-3 py-2.5 text-[12px] text-muted">
-        <b className="text-ink">Help</b>
+      <div className="rounded-2xl bg-card p-4 text-xs text-muted-foreground ring-1 ring-foreground/10">
+        <p className="font-medium text-foreground">Need help?</p>
         <p className="mt-1">support@lablink.demo</p>
         <p>Mon to Sat, 7am to 6pm</p>
       </div>
-    </div>
-  )
-}
-
-function Drawer({
-  profile,
-  screen,
-  labsBadge,
-  onNavigate,
-  onPublicHome,
-  onClose,
-}: {
-  profile: Profile
-  screen: Screen
-  labsBadge: boolean
-  onNavigate: (s: Screen) => void
-  onPublicHome?: () => void
-  onClose: () => void
-}) {
-  const ref = useModal<HTMLDivElement>(onClose)
-  return (
-    <div className="fixed inset-0 z-[1100] lg:hidden print:hidden">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
-      <div ref={ref} role="dialog" aria-modal="true" aria-label="Menu" tabIndex={-1} className="absolute inset-y-0 left-0 flex w-[min(80vw,300px)] flex-col overflow-y-auto bg-white outline-none">
-        <div className="flex items-center justify-between bg-brand-700 px-4 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2 text-white">
-          <span className="text-[15px]">
-            Welcome, <b>{profile.name}</b>
-          </span>
-          <button type="button" onClick={onClose} aria-label="Close menu" className="grid size-10 place-items-center">
-            <X size={20} />
-          </button>
-        </div>
-        <ul>
-          {NAV.map((n) => {
-            const active = n.id === screen
-            return (
-              <li key={n.id}>
-                <button
-                  type="button"
-                  onClick={() => onNavigate(n.id)}
-                  aria-current={active ? 'page' : undefined}
-                  className={`flex w-full items-center gap-3 border-b border-rule-soft px-4 py-3 text-left text-[15px] ${active ? 'bg-brand-50 font-bold text-brand-700' : ''}`}
-                >
-                  <n.icon size={18} className="text-brand-600" aria-hidden />
-                  {n.label}
-                  {n.id === 'labs' && labsBadge && <Badge />}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-        {onPublicHome && (
-          <button type="button" onClick={onPublicHome} className="border-b border-rule-soft px-4 py-3 text-left text-[15px] text-brand-600">
-            LabLink home
-          </button>
-        )}
-        <p className="mt-auto px-4 py-3 text-[12px] text-muted">
-          For information only, not a diagnosis.
-          <br />
-          support@lablink.demo
-        </p>
-      </div>
-    </div>
+    </>
   )
 }
 
 function TabBar({ screen, labsBadge, onNavigate }: { screen: Screen; labsBadge: boolean; onNavigate: (s: Screen) => void }) {
   const current = TABS.some((t) => t.id === screen) ? screen : 'home'
   return (
-    <nav aria-label="Tabs" className="fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-white pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden">
-      <ul className="grid h-[var(--tabbar-h)] grid-cols-4">
+    <nav aria-label="Tabs" className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden">
+      <ul className="grid h-[var(--tabbar-h)] grid-cols-4 px-2">
         {TABS.map((t) => {
           const active = t.id === current
           return (
-            <li key={t.id}>
+            <li key={t.id} className="flex items-center justify-center">
               <button
                 type="button"
                 onClick={() => onNavigate(t.id)}
                 aria-current={active ? 'page' : undefined}
-                className={`flex h-full w-full flex-col items-center justify-center gap-0.5 text-[11px] ${active ? 'font-bold text-brand-700' : 'text-muted'}`}
+                className={cn('flex flex-col items-center gap-1 text-[11px] font-medium', active ? 'text-primary' : 'text-muted-foreground')}
               >
-                <span className="relative">
-                  <t.icon size={20} aria-hidden />
-                  {t.id === 'labs' && labsBadge && (
-                    <span className="absolute -top-0.5 -right-1.5 size-2 rounded-full bg-oxblood-600">
-                      <span className="sr-only">Checkup due</span>
-                    </span>
-                  )}
+                <span className={cn('relative grid h-8 w-14 place-items-center rounded-4xl transition-colors', active && 'bg-accent')}>
+                  <t.icon className="size-5" aria-hidden />
+                  {t.id === 'labs' && labsBadge && <DueDot className="absolute top-1 right-3" />}
                 </span>
                 {t.label}
               </button>
