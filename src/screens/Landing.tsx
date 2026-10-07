@@ -5,7 +5,8 @@ import { cn } from '@/lib/utils'
 import { Logo } from '../components/Logo'
 import { btn } from '../components/buttons'
 import { PARTNER_LABS } from '../data/labs'
-import { DIABETES_MGDL, MGDL_PER_MMOL, PREDIABETES_MGDL } from '../lib/glucose'
+import { TEST_KINDS, TESTS } from '../lib/tests'
+import type { TestKind } from '../lib/types'
 
 interface Props {
   /** True when a member record already exists on this device. */
@@ -16,20 +17,54 @@ interface Props {
 }
 
 const naira = (n: number) => `₦${n.toLocaleString('en-NG')}`
-const mmol = (mgdl: number) => (mgdl / MGDL_PER_MMOL).toFixed(1)
 
 const SECTIONS = [
   { id: 'how', label: 'How it works' },
-  { id: 'ranges', label: 'Blood sugar ranges', short: 'Ranges' },
+  { id: 'ranges', label: 'Know your numbers', short: 'Your numbers' },
   { id: 'labs', label: 'Partner labs', short: 'Labs' },
   { id: 'faq', label: 'FAQs' },
 ]
 
+// Healthy and unhealthy ranges per test, as people read them on a lab report.
+const RANGES: Record<TestKind, { source: string; rows: [string, number][] }> = {
+  fbs: {
+    source: 'American Diabetes Association',
+    rows: [
+      ['Below 5.6 mmol/L (100 mg/dL)', 0],
+      ['5.6 to 6.9 mmol/L (100 to 125 mg/dL)', 1],
+      ['7.0 mmol/L (126 mg/dL) or higher', 2],
+    ],
+  },
+  hba1c: { source: 'American Diabetes Association', rows: [['Below 5.7%', 0], ['5.7% to 6.4%', 1], ['6.5% or higher', 2]] },
+  bp: {
+    source: 'American Heart Association, 2017',
+    rows: [
+      ['Below 120/80 mmHg', 0],
+      ['120 to 129 over below 80', 1],
+      ['130 to 139, or 80 to 89', 2],
+      ['140/90 mmHg or higher', 3],
+    ],
+  },
+  chol: {
+    source: 'US National Cholesterol Education Program',
+    rows: [
+      ['Below 5.2 mmol/L (200 mg/dL)', 0],
+      ['5.2 to 6.1 mmol/L (200 to 239 mg/dL)', 1],
+      ['6.2 mmol/L (240 mg/dL) or higher', 2],
+    ],
+  },
+}
+const LEVEL_TEXT = ['text-green-700', 'text-amber-700', 'text-red-700', 'text-red-800']
+
+const priceRange = (k: TestKind) => {
+  const p = PARTNER_LABS.map((l) => l.prices[k])
+  return [Math.min(...p), Math.max(...p)]
+}
+
 const card = 'rounded-2xl bg-card ring-1 ring-foreground/10'
 
 export function Landing({ member, memberName, onEnrol, onLogin }: Props) {
-  const prices = PARTNER_LABS.map((l) => l.prices.fbs)
-  const minPrice = Math.min(...prices)
+  const minPrice = Math.min(...TEST_KINDS.map((k) => priceRange(k)[0]))
   const homeCount = PARTNER_LABS.filter((l) => l.homeSampling).length
   const primary = member ? (
     <button type="button" onClick={onLogin} className={btn('primary', 'lg')}>
@@ -94,7 +129,7 @@ export function Landing({ member, memberName, onEnrol, onLogin }: Props) {
             <p className="mt-4 max-w-[58ch] text-lg text-muted-foreground">
               LabLink keeps your lab results in one place, spots worrying changes early, reminds you when your next checkup is due and helps you book a test at a nearby lab.
             </p>
-            <p className="mt-3 text-sm font-medium text-accent-foreground">Starting with fasting blood sugar.</p>
+            <p className="mt-3 text-sm font-medium text-accent-foreground">Tracks fasting blood sugar, HbA1c, blood pressure and cholesterol.</p>
             <div className="mt-6 flex flex-wrap gap-3">
               {primary}
               <a href="#how" className={btn('secondary', 'lg')}>
@@ -131,10 +166,10 @@ export function Landing({ member, memberName, onEnrol, onLogin }: Props) {
             See every result on one chart. LabLink compares each new result with your past ones and tells you if it is rising.
           </Service>
           <Service icon={Bell} title="Retest reminders">
-            Get reminded when your next test is due: every 6 months if stable, every 3 months if rising, sooner if a result is high.
+            Get reminded when each test is due again: sooner if a result is rising or above normal, later if it is stable.
           </Service>
           <Service icon={FlaskConical} title="Partner labs">
-            Find a partner lab near you, check opening hours and prices, and book a test. Fasting blood sugar tests from {naira(minPrice)}.
+            Find a partner lab near you, check opening hours and prices, and book a test. Tests from {naira(minPrice)}.
           </Service>
         </section>
 
@@ -152,40 +187,28 @@ export function Landing({ member, memberName, onEnrol, onLogin }: Props) {
           </ol>
         </Band>
 
-        <Band id="ranges" title="Fasting blood sugar ranges" subtitle="American Diabetes Association cut-offs for adults.">
-          <div className={cn(card, 'overflow-hidden')}>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-5">Range</TableHead>
-                  <TableHead>mmol/L</TableHead>
-                  <TableHead className="pr-5">mg/dL</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="pl-5 font-medium text-green-700">Normal</TableCell>
-                  <TableCell>Below {mmol(PREDIABETES_MGDL)}</TableCell>
-                  <TableCell className="pr-5">Below {PREDIABETES_MGDL}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="pl-5 font-medium text-amber-700">Prediabetes</TableCell>
-                  <TableCell>
-                    {mmol(PREDIABETES_MGDL)} to {mmol(DIABETES_MGDL - 1)}
-                  </TableCell>
-                  <TableCell className="pr-5">
-                    {PREDIABETES_MGDL} to {DIABETES_MGDL - 1}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="pl-5 font-medium text-red-700">Diabetes range</TableCell>
-                  <TableCell>{mmol(DIABETES_MGDL)} or higher</TableCell>
-                  <TableCell className="pr-5">{DIABETES_MGDL} or higher</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+        <Band id="ranges" title="Know your numbers" subtitle="Healthy and unhealthy ranges for adults, for each test LabLink tracks.">
+          <div className="grid gap-4 md:grid-cols-2">
+            {TEST_KINDS.map((k) => (
+              <div key={k} className={cn(card, 'overflow-hidden')}>
+                <div className="px-5 pt-4 pb-2">
+                  <h3 className="font-semibold">{TESTS[k].name}</h3>
+                  <p className="text-xs text-muted-foreground">{RANGES[k].source}</p>
+                </div>
+                <Table>
+                  <TableBody>
+                    {RANGES[k].rows.map(([text, level]) => (
+                      <TableRow key={text}>
+                        <TableCell className={cn('pl-5 font-medium', LEVEL_TEXT[level])}>{TESTS[k].bands[level].label}</TableCell>
+                        <TableCell className="pr-5 text-right whitespace-normal">{text}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ))}
           </div>
-          <p className="mt-3 text-sm text-muted-foreground">One result is not a diagnosis. A doctor will confirm with a repeat test or an HbA1c test.</p>
+          <p className="mt-3 text-sm text-muted-foreground">One result is not a diagnosis. A doctor will confirm with repeat or further tests.</p>
         </Band>
 
         <Band id="labs" title="Partner labs" subtitle={`${PARTNER_LABS.length} labs on Lagos Mainland. ${homeCount} offer home sample collection.`} tinted>
@@ -196,7 +219,11 @@ export function Landing({ member, memberName, onEnrol, onLogin }: Props) {
                   <TableHead className="pl-5">Lab</TableHead>
                   <TableHead>Area</TableHead>
                   <TableHead>Hours</TableHead>
-                  <TableHead className="text-right">Fasting blood sugar</TableHead>
+                  {TEST_KINDS.map((k) => (
+                    <TableHead key={k} className="text-right">
+                      {TESTS[k].short}
+                    </TableHead>
+                  ))}
                   <TableHead className="pr-5">Home collection</TableHead>
                 </TableRow>
               </TableHeader>
@@ -206,7 +233,11 @@ export function Landing({ member, memberName, onEnrol, onLogin }: Props) {
                     <TableCell className="pl-5 font-medium">{l.name}</TableCell>
                     <TableCell>{l.area}</TableCell>
                     <TableCell>{l.hours.replace(' · ', ', ')}</TableCell>
-                    <TableCell className="text-right">{naira(l.prices.fbs)}</TableCell>
+                    {TEST_KINDS.map((k) => (
+                      <TableCell key={k} className="text-right">
+                        {naira(l.prices[k])}
+                      </TableCell>
+                    ))}
                     <TableCell className="pr-5">{l.homeSampling ? 'Yes' : 'No'}</TableCell>
                   </TableRow>
                 ))}
@@ -217,18 +248,24 @@ export function Landing({ member, memberName, onEnrol, onLogin }: Props) {
 
         <Band id="faq" title="Frequently asked questions">
           <div className={cn(card, 'divide-y divide-border')}>
-            <Faq q="Does LabLink diagnose diabetes?">No. LabLink shows your results and how they are changing. Only a doctor can diagnose diabetes.</Faq>
+            <Faq q="Does LabLink diagnose illness?">No. LabLink shows your results and how they are changing. Only a doctor can make a diagnosis.</Faq>
             <Faq q="Where is my information stored?">
               Your profile and results are stored on this device. Resetting the app deletes them. If you use the Health Coach or scan a lab report, the details needed to answer you are
               sent to the AI service.
             </Faq>
-            <Faq q="How much is a fasting blood sugar test?">
-              Between {naira(minPrice)} and {naira(Math.max(...prices))} at our partner labs.
+            <Faq q="How much do tests cost?">
+              {`${TEST_KINDS.map((k) => {
+                const [lo, hi] = priceRange(k)
+                return `${TESTS[k].name}: ${naira(lo)} to ${naira(hi)}`
+              }).join('. ')}, at our partner labs.`}
             </Faq>
             <Faq q="How often should I test?">
-              Every 6 months if your results are normal and stable, every 3 months if they are rising or in the prediabetes range, and within a month if a result is in the diabetes range.
+              It depends on the test and on your results. Fasting blood sugar every 6 months if stable, every 3 months if rising. HbA1c, blood pressure and cholesterol once a year if
+              normal, more often if a result is above normal. LabLink works this out for you and reminds you when each test is due.
             </Faq>
-            <Faq q="Do I need to fast before the test?">Yes. Do not eat for 8 to 12 hours before the test. You can drink water.</Faq>
+            <Faq q="Do I need to fast before a test?">
+              Only for fasting blood sugar: do not eat for 8 to 12 hours before it. You can drink water. HbA1c, blood pressure and total cholesterol do not need fasting.
+            </Faq>
           </div>
         </Band>
 
